@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================================================================
+// ENUMS
+// ==============================================================================
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  RESULT_PUBLISHED
+  SYSTEM_ALERT
+  SYNC_ERROR
+}
+
+enum CredentialType {
+  PASSWORD
+  OAUTH_TOKEN
+  API_KEY
+}
+
+// ==============================================================================
+// AUTHENTICATION MODELS (NextAuth / Auth.js)
+// ==============================================================================
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(STUDENT)
+  
+  accounts      Account[]
+  sessions      Session[]
+  
+  profile       StudentProfile?
+  notifications Notification[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==============================================================================
+// DOMAIN MODELS
+// ==============================================================================
+
+model University {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g., "IPU", "DU"
+  name        String
+  website     String?
+  isActive    Boolean  @default(true)
+  
+  profiles    StudentProfile[]
+  sessions    AcademicSession[] 
+  courses     Course[] 
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // Soft delete support for Universities
+
+  @@index([code])
+}
+
+model StudentProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  universityId   String
+  enrollmentNo   String   // Enrollment number or university-specific student ID
+  program        String?  // e.g., "B.Tech CSE"
+  batchYear      Int?     // e.g., 2021
+  
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university     University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  
+  credentials    CredentialVault?
+  semesterResults SemesterResult[]
+  syncJobs       SyncJob[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([universityId, enrollmentNo])
+  @@index([userId])
+  @@index([universityId])
+}
+
+model CredentialVault {
+  id               String   @id @default(uuid())
+  studentProfileId String   @unique
+  type             CredentialType @default(PASSWORD)
+  
+  // Encrypted payload. Never store plaintext. 
+  // Should be encrypted/decrypted at the application layer (e.g., AES-256-GCM).
+  encryptedData    String   @db.Text
+  iv               String   // Initialization vector
+  authTag          String   // Authentication tag for GCM
+  
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Represents a distinct academic term globally at a university (e.g. "May-June 2024")
+model AcademicSession {
+  id           String   @id @default(uuid())
+  universityId String
+  name         String   
+  startDate    DateTime?
+  endDate      DateTime?
+  
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  semesters    Semester[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([universityId, name])
+}
+
+// Represents a logical semester block (e.g., Semester 4) tied to a specific session
+model Semester {
+  id                String   @id @default(uuid())
+  academicSessionId String
+  termNumber        Int      // e.g., 1, 2, 3... 8
+  
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Restrict)
+  results           SemesterResult[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([academicSessionId, termNumber])
+  @@index([academicSessionId])
+}
+
+// University Course/Subject Catalog
+model Course {
+  id           String   @id @default(uuid())
+  universityId String
+  code         String   // e.g., "ETCS-401"
+  name         String   // e.g., "Machine Learning"
+  credits      Int
+  
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  results      CourseResult[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([universityId, code])
+}
+
+// A student's summarized result for a specific semester
+model SemesterResult {
+  id               String   @id @default(uuid())
+  studentProfileId String
+  semesterId       String
+  
+  sgpa             Float
+  cgpa             Float?   // Running CGPA up to this semester
+  totalCreditsEarned Int
+  
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  semester         Semester       @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  courseResults    CourseResult[]
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([studentProfileId, semesterId])
+  @@index([studentProfileId])
+  @@index([semesterId])
+}
+
+// Granular result for a specific course within a semester
+model CourseResult {
+  id               String   @id @default(uuid())
+  semesterResultId String
+  courseId         String
+  
+  internalMarks    Float?
+  externalMarks    Float?
+  totalMarks       Float
+  grade            String?  // e.g., "A+", "B"
+  points           Int?     // e.g., 10, 9
+  passed           Boolean
+  
+  semesterResult   SemesterResult @relation(fields: [semesterResultId], references: [id], onDelete: Cascade)
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([semesterResultId, courseId])
+  @@index([semesterResultId])
+  @@index([courseId])
+}
+
+// ==============================================================================
+// BACKGROUND WORKER & NOTIFICATION MODELS
+// ==============================================================================
+
+// Tracks background sync jobs per student
+model SyncJob {
+  id               String   @id @default(uuid())
+  studentProfileId String
+  status           SyncStatus @default(PENDING)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  errorMessage     String?  @db.Text
+  
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  history          SyncHistory[]
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([studentProfileId, status])
+}
+
+// Granular execution logs for a sync job
+model SyncHistory {
+  id           String   @id @default(uuid())
+  syncJobId    String
+  logMessage   String   @db.Text
+  createdAt    DateTime @default(now())
+  
+  syncJob      SyncJob  @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+  
+  @@index([syncJobId])
+}
+
+// Notifications for students
+model Notification {
+  id           String   @id @default(uuid())
+  userId       String
+  type         NotificationType
+  title        String
+  message      String   @db.Text
+  isRead       Boolean  @default(false)
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
