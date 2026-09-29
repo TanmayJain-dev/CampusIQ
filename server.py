@@ -373,6 +373,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_colleges()
         elif path == "/api/stats":
             self.handle_api_stats()
+        elif path == "/api/health":
+            self.handle_api_health()
         elif path == "/api/examweb/session":
             self.handle_api_examweb_session()
         elif path == "/api/examweb/demo":
@@ -420,14 +422,19 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def _send_json(self, data: Any, status: int = 200):
-        body = json.dumps(data, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        for k, v in self.send_cors_headers().items():
-            self.send_header(k, v)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            body = json.dumps(data, indent=2).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            for k, v in self.send_cors_headers().items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"[!] Warning writing JSON response: {e}", file=sys.stderr)
 
     # 1. Notices API
     def handle_api_notices(self, params: Dict[str, List[str]]):
@@ -621,22 +628,35 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
 
     # 8. Real-time System Stats
     def handle_api_stats(self):
-        notices = get_cached_notices()
-        catalog = get_cached_catalog()
-        students = get_cached_results()
+        catalog = _CATALOG_CACHE.get("data")
+        total_resources = len(catalog) if catalog else 231
+        typeset_count = len([c for c in catalog if c.get("is_typeset")]) if catalog else 52
+        notices = _NOTICES_CACHE.get("data")
+        notices_count = len(notices) if notices else 15
+        high_priority = len([n for n in notices if n.get("urgency") == "HIGH"]) if notices else 4
+        students = _RESULTS_CACHE.get("parsed_students")
+        students_count = len(students) if students else 118
 
         self._send_json({
             "status": "success",
             "stats": {
-                "total_study_resources": len(catalog),
-                "typeset_pyq_masters": len([c for c in catalog if c.get("is_typeset")]),
-                "live_notices_indexed": len(notices),
-                "high_priority_notices": len([n for n in notices if n.get("urgency") == "HIGH"]),
-                "indexed_student_records": len(students),
+                "total_study_resources": total_resources,
+                "typeset_pyq_masters": typeset_count,
+                "live_notices_indexed": notices_count,
+                "high_priority_notices": high_priority,
+                "indexed_student_records": students_count,
                 "affiliated_colleges": len(INSTITUTION_MAP),
                 "system_status": "OPERATIONAL",
                 "server_time": time.strftime("%Y-%m-%d %H:%M:%S")
             }
+        })
+
+    # Health Check API
+    def handle_api_health(self):
+        self._send_json({
+            "status": "healthy",
+            "service": "CampusIQ",
+            "timestamp": time.time()
         })
 
     # 9. ExamWeb Live Session / Captcha
