@@ -406,7 +406,9 @@ function toggleNoticePdfPreview() {
 
   if (container.classList.contains("hidden")) {
     container.classList.remove("hidden");
-    frame.src = state.activeNotice.url;
+    const rawUrl = state.activeNotice.url || "";
+    const proxyUrl = `/api/notices/proxy?url=${encodeURIComponent(rawUrl)}`;
+    frame.src = proxyUrl;
     if (label) label.innerText = "Hide Preview";
   } else {
     container.classList.add("hidden");

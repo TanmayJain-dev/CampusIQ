@@ -22,6 +22,7 @@ import hmac
 import mimetypes
 import urllib.request
 import urllib.parse
+import tempfile
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -62,8 +63,65 @@ SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
 SESSIONS_FILE = os.path.join(PROJECT_DIR, "data", "sessions.json")
 USERS_FILE = os.path.join(PROJECT_DIR, "data", "users.json")
 AUTH_CONFIG_FILE = os.path.join(PROJECT_DIR, "data", "auth_config.json")
+VAULT_DRIVE_MAP_FILE = os.path.join(PROJECT_DIR, "data", "vault_drive_map.json")
+VAULT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "campusiq_vault_cache")
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
 _USERS: Dict[str, Dict[str, Any]] = {}
+
+def load_vault_drive_map() -> Dict[str, Any]:
+    if os.path.exists(VAULT_DRIVE_MAP_FILE):
+        try:
+            with open(VAULT_DRIVE_MAP_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"files": {}, "folders": {}}
+
+def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
+    """Fetch raw file bytes directly from Google Drive headless without exposing any Drive URLs."""
+    try:
+        os.makedirs(VAULT_CACHE_DIR, exist_ok=True)
+        cache_path = os.path.join(VAULT_CACHE_DIR, f"{file_id}.pdf")
+        if os.path.exists(cache_path) and os.path.getsize(cache_path) > 100:
+            try:
+                with open(cache_path, "rb") as f:
+                    return f.read()
+            except Exception:
+                pass
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "*/*"
+        }
+        urls = [
+            f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0",
+            f"https://drive.google.com/uc?export=download&id={file_id}",
+        ]
+        for url in urls:
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = resp.read()
+                    if b"confirm=" in data and b"download" in data:
+                        m = re.search(r'confirm=([0-9a-zA-Z_-]+)', data.decode('utf-8', errors='ignore'))
+                        if m:
+                            confirm_token = m.group(1)
+                            confirm_url = f"{url}&confirm={confirm_token}"
+                            creq = urllib.request.Request(confirm_url, headers=headers)
+                            with urllib.request.urlopen(creq, timeout=20) as cresp:
+                                data = cresp.read()
+                    if data and len(data) > 200 and not data.startswith(b"<!DOCTYPE html"):
+                        try:
+                            with open(cache_path, "wb") as f:
+                                f.write(data)
+                        except Exception:
+                            pass
+                        return data
+            except Exception as e:
+                print(f"[!] Drive stream error for {file_id}: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"[!] Drive fetch handler error: {e}", file=sys.stderr)
+    return None
 
 def load_auth_config() -> Dict[str, Any]:
     config = {
@@ -478,6 +536,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         # API Routes
         if path == "/api/notices":
             self.handle_api_notices(params)
+        elif path == "/api/notices/proxy":
+            self.handle_api_notice_proxy(params)
         elif path == "/api/resources":
             self.handle_api_resources(params)
         elif path == "/api/resources/tree":
@@ -654,34 +714,98 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
 
     # 3. Resource PDF Stream / Preview
     def handle_api_resource_view(self, params: Dict[str, List[str]]):
-        rel_path = params.get("path", [""])[0]
-        if not rel_path:
-            self._send_json({"error": "Missing 'path' parameter"}, 400)
+        rel_path = params.get("path", [""])[0].strip()
+        file_id = params.get("id", [""])[0].strip()
+
+        if not rel_path and not file_id:
+            self._send_json({"error": "Missing 'path' or 'id' parameter"}, 400)
             return
 
-        # Security: Prevent directory traversal outside ACADEMIC_DIR
-        abs_path = os.path.abspath(os.path.join(ACADEMIC_DIR, rel_path))
-        if not abs_path.startswith(os.path.abspath(ACADEMIC_DIR)) or not os.path.exists(abs_path):
-            if os.path.exists(SAMPLE_RESULT_PDF):
-                abs_path = os.path.abspath(SAMPLE_RESULT_PDF)
-            else:
-                self._send_json({"error": "Resource file not found"}, 404)
-                return
+        filename = os.path.basename(rel_path) if rel_path else f"document_{file_id}.pdf"
+        content = None
 
-        try:
-            with open(abs_path, "rb") as f:
-                content = f.read()
+        # 1. Try local disk first (when running in local development or if mounted)
+        if rel_path:
+            abs_path = os.path.abspath(os.path.join(ACADEMIC_DIR, rel_path))
+            if abs_path.startswith(os.path.abspath(ACADEMIC_DIR)) and os.path.exists(abs_path):
+                try:
+                    with open(abs_path, "rb") as f:
+                        content = f.read()
+                    filename = os.path.basename(abs_path)
+                except Exception as e:
+                    print(f"[!] Error reading local file {abs_path}: {e}", file=sys.stderr)
 
+        # 2. Try Google Drive headless stream (mapped via data/vault_drive_map.json)
+        if content is None:
+            drive_map = load_vault_drive_map()
+            target_id = file_id or drive_map.get("files", {}).get(rel_path)
+            
+            # If not exact match, try normalized match
+            if not target_id and rel_path:
+                norm_rel = rel_path.replace("\\", "/").strip("/")
+                for k, v in drive_map.get("files", {}).items():
+                    if k.replace("\\", "/").strip("/") == norm_rel:
+                        target_id = v
+                        break
+
+            if target_id:
+                content = fetch_google_drive_file(target_id)
+
+        # 3. Stream content if found
+        if content:
             self.send_response(200)
             self.send_header("Content-Type", "application/pdf")
             self.send_header("Content-Length", str(len(content)))
-            self.send_header("Content-Disposition", f"inline; filename=\"{os.path.basename(abs_path)}\"")
+            self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+            for k, v in self.send_cors_headers().items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 4. Clean Not Found (NEVER fallback to sample_result.pdf)
+        self._send_json({
+            "status": "not_found",
+            "error": f"The document '{filename}' is currently being synced. Please check back shortly."
+        }, 404)
+
+    # 3b. Notice Proxy to bypass X-Frame-Options and Mixed Content
+    def handle_api_notice_proxy(self, params: Dict[str, List[str]]):
+        url = params.get("url", [""])[0].strip()
+        if not url:
+            self._send_json({"error": "Missing 'url' parameter"}, 400)
+            return
+
+        # Security: allow proxying university notice domains
+        allowed_domains = ["ipu.ac.in", "mait.ac.in", "ggsipu.ac.in", "onrender.com"]
+        parsed = urllib.parse.urlparse(url)
+        if not any(parsed.netloc.endswith(d) for d in allowed_domains):
+            self._send_json({"error": "Domain not permitted for proxy"}, 403)
+            return
+
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, context=ctx, timeout=12) as resp:
+                content = resp.read()
+                content_type = resp.headers.get("Content-Type", "application/pdf")
+                filename = os.path.basename(parsed.path) or "notice.pdf"
+
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Content-Disposition", f'inline; filename="{filename}"')
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:
-            self._send_json({"error": str(e)}, 500)
+            self._send_json({"error": f"Failed to load notice: {str(e)}"}, 500)
 
     # 4. Results API
     def handle_api_results(self, params: Dict[str, List[str]]):
