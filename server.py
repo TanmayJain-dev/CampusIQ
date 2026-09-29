@@ -484,6 +484,19 @@ def get_cached_catalog() -> List[Dict[str, Any]]:
     if _CATALOG_CACHE["data"] and (now - _CATALOG_CACHE["last_scanned"] < _CATALOG_CACHE["ttl"]):
         return _CATALOG_CACHE["data"]
 
+    catalog_cache_file = os.path.join(PROJECT_DIR, "data", "catalog_cache.json")
+    if os.path.exists(catalog_cache_file):
+        try:
+            with open(catalog_cache_file, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                items = d.get("catalog", [])
+                if items:
+                    _CATALOG_CACHE["data"] = items
+                    _CATALOG_CACHE["last_scanned"] = now
+                    return items
+        except Exception as e:
+            print(f"[!] Warning loading catalog cache: {e}", file=sys.stderr)
+
     try:
         cataloguer = CampusIQResourceCataloguer(ACADEMIC_DIR)
         items = cataloguer.scan()
@@ -748,19 +761,41 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                         target_id = v
                         break
 
+            # If still not matched, try matching by filename
+            if not target_id and rel_path:
+                req_base = os.path.basename(rel_path).lower()
+                for k, v in drive_map.get("files", {}).items():
+                    if os.path.basename(k).lower() == req_base:
+                        target_id = v
+                        break
+
             if target_id:
                 content = fetch_google_drive_file(target_id)
 
         # 3. Stream content if found
         if content:
+            lower_name = filename.lower()
+            if lower_name.endswith(".jpg") or lower_name.endswith(".jpeg"):
+                mime_type = "image/jpeg"
+            elif lower_name.endswith(".png"):
+                mime_type = "image/png"
+            elif lower_name.endswith(".docx"):
+                mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            else:
+                mime_type = "application/pdf"
+
             self.send_response(200)
-            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(len(content)))
             self.send_header("Content-Disposition", f'inline; filename="{filename}"')
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
             self.end_headers()
-            self.wfile.write(content)
+            if self.command != "HEAD":
+                try:
+                    self.wfile.write(content)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             return
 
         # 4. Clean Not Found (NEVER fallback to sample_result.pdf)
@@ -803,7 +838,11 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
             self.end_headers()
-            self.wfile.write(content)
+            if self.command != "HEAD":
+                try:
+                    self.wfile.write(content)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
         except Exception as e:
             self._send_json({"error": f"Failed to load notice: {str(e)}"}, 500)
 
@@ -983,6 +1022,20 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
     # 12. Hierarchical Study Vault Tree API
     def handle_api_resources_tree(self):
         try:
+            catalog_cache_file = os.path.join(PROJECT_DIR, "data", "catalog_cache.json")
+            if os.path.exists(catalog_cache_file):
+                try:
+                    with open(catalog_cache_file, "r", encoding="utf-8") as f:
+                        d = json.load(f)
+                        if "tree" in d and d["tree"]:
+                            self._send_json({
+                                "status": "success",
+                                "tree": d["tree"]
+                            })
+                            return
+                except Exception as e:
+                    print(f"[!] Warning reading tree from cache: {e}", file=sys.stderr)
+
             cataloguer = CampusIQResourceCataloguer(ACADEMIC_DIR)
             tree_data = cataloguer.build_tree()
             self._send_json({
