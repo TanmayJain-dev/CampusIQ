@@ -16,6 +16,7 @@ import re
 import json
 import ssl
 import time
+import secrets
 import mimetypes
 import urllib.request
 import urllib.parse
@@ -55,8 +56,30 @@ ACADEMIC_DIR = os.environ.get(
 )
 SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
 
-# Global active authenticated student session (defaults to Tanmay)
-_ACTIVE_STUDENT_ROLL = "08414802725"
+# Session Store Configuration
+SESSIONS_FILE = os.path.join(PROJECT_DIR, "data", "sessions.json")
+_SESSIONS: Dict[str, Dict[str, Any]] = {}
+
+def load_sessions() -> Dict[str, Dict[str, Any]]:
+    global _SESSIONS
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+                _SESSIONS = json.load(f)
+        except Exception:
+            _SESSIONS = {}
+    return _SESSIONS
+
+def save_sessions():
+    try:
+        os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
+        with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(_SESSIONS, f, indent=2)
+    except Exception as e:
+        print(f"[!] Error saving sessions: {e}", file=sys.stderr)
+
+# Initialize sessions from disk
+load_sessions()
 
 # In-memory caches
 _NOTICES_CACHE = {
@@ -359,8 +382,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_resources_tree()
         elif path == "/api/resources/view":
             self.handle_api_resource_view(params)
-        elif path == "/api/auth/current":
-            self.handle_api_auth_current()
+        elif path == "/api/auth/me" or path == "/api/auth/current":
+            self.handle_api_auth_me()
         elif path == "/api/students/directory":
             self.handle_api_students_directory(params)
         elif path == "/api/results":
@@ -398,14 +421,18 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         self.send_cors_headers = lambda: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
         }
 
         if path == "/api/examweb/login":
             self.handle_api_examweb_login()
-        elif path == "/api/auth/google":
-            self.handle_api_auth_google()
-        elif path == "/api/profile/update":
+        elif path in ("/api/auth/google/signin", "/api/auth/google", "/api/auth/signin"):
+            self.handle_api_auth_signin()
+        elif path == "/api/auth/signout":
+            self.handle_api_auth_signout()
+        elif path == "/api/auth/link-roll":
+            self.handle_api_auth_link_roll()
+        elif path in ("/api/profile/update", "/api/students/profile"):
             self.handle_api_profile_update()
         elif path == "/api/profile/verify":
             self.handle_api_profile_verify()
@@ -708,41 +735,156 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
-    # 13. Current Google Authenticated Student Session
-    def handle_api_auth_current(self):
-        global _ACTIVE_STUDENT_ROLL
-        student = get_student_by_roll(_ACTIVE_STUDENT_ROLL)
-        if not student:
-            student = get_student_by_roll("08414802725")
-            if student:
-                _ACTIVE_STUDENT_ROLL = "08414802725"
+    def get_authenticated_user(self) -> Optional[Dict[str, Any]]:
+        auth_header = self.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+
+        if not token:
+            parsed = urllib.parse.urlparse(self.path)
+            params = urllib.parse.parse_qs(parsed.query)
+            token = params.get("token", [""])[0].strip()
+
+        if not token:
+            return None
+
+        sessions = load_sessions()
+        return sessions.get(token)
+
+    # 13. Current Authenticated Session & Student Profile
+    def handle_api_auth_me(self):
+        user = self.get_authenticated_user()
+        if not user:
+            self._send_json({
+                "status": "success",
+                "is_authenticated": False,
+                "user": None,
+                "student": None
+            })
+            return
+
+        roll = user.get("roll_number")
+        db = load_all_students_db()
+        student = db.get(roll) if roll else None
+
         self._send_json({
             "status": "success",
             "is_authenticated": True,
-            "active_roll": _ACTIVE_STUDENT_ROLL,
+            "user": user,
             "student": student
         })
 
-    # 14. Switch / Authenticate Google Student Account
-    def handle_api_auth_google(self):
-        global _ACTIVE_STUDENT_ROLL
+    def handle_api_auth_current(self):
+        self.handle_api_auth_me()
+
+    # 14. Sign in with Google Account
+    def handle_api_auth_signin(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
             body_bytes = self.rfile.read(length)
             data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+
+            email = data.get("email", "").strip()
+            name = data.get("name", "").strip()
+            avatar = data.get("avatar", "").strip()
             roll = data.get("roll_number", "").strip()
-            
+
+            if not email:
+                self._send_json({"status": "error", "message": "Email is required to sign in."}, 400)
+                return
+
+            if not name:
+                name = email.split("@")[0].replace(".", " ").title()
+
+            if not avatar:
+                avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}"
+
             db = load_all_students_db()
-            if roll and roll in db:
-                _ACTIVE_STUDENT_ROLL = roll
-                self._send_json({
-                    "status": "success",
-                    "message": f"Successfully signed in as {db[roll].get('name')}",
-                    "active_roll": _ACTIVE_STUDENT_ROLL,
-                    "student": db[roll]
-                })
+            student = None
+            if roll:
+                student = db.get(roll)
             else:
-                self._send_json({"status": "error", "message": f"Student account {roll} not found"}, 404)
+                for r, s in db.items():
+                    if s.get("email", "").lower() == email.lower():
+                        roll = r
+                        student = s
+                        break
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": name,
+                "avatar_url": avatar,
+                "roll_number": roll or None,
+                "created_at": time.time()
+            }
+
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Welcome, {name}!",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Sign Out
+    def handle_api_auth_signout(self):
+        try:
+            user = self.get_authenticated_user()
+            if user:
+                token = user.get("session_token")
+                sessions = load_sessions()
+                if token in sessions:
+                    del sessions[token]
+                    save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": "Signed out successfully."
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Link GGSIPU Roll Number to Authenticated Account
+    def handle_api_auth_link_roll(self):
+        try:
+            user = self.get_authenticated_user()
+            if not user:
+                self._send_json({"status": "error", "message": "Sign-in required to link roll number."}, 401)
+                return
+
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            roll = data.get("roll_number", "").strip()
+
+            if not roll or len(roll) != 11 or not roll.isdigit():
+                self._send_json({"status": "error", "message": "Valid 11-digit roll number required."}, 400)
+                return
+
+            db = load_all_students_db()
+            student = db.get(roll)
+
+            token = user.get("session_token")
+            sessions = load_sessions()
+            if token in sessions:
+                sessions[token]["roll_number"] = roll
+                save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Successfully linked Roll Number {roll}",
+                "roll_number": roll,
+                "student": student
+            })
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
@@ -803,12 +945,19 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
 
     # 16. Profile Preferences & Details Update API
     def handle_api_profile_update(self):
-        global _ACTIVE_STUDENT_ROLL
         try:
+            user = self.get_authenticated_user()
             length = int(self.headers.get("Content-Length", 0))
             body_bytes = self.rfile.read(length)
             data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
-            roll = data.get("roll_number", _ACTIVE_STUDENT_ROLL).strip()
+            
+            roll = user.get("roll_number") if user else None
+            if not roll:
+                roll = data.get("roll_number", "").strip()
+
+            if not roll:
+                self._send_json({"error": "No linked student account to update."}, 400)
+                return
             
             db = load_all_students_db()
             if roll not in db:
@@ -846,12 +995,14 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
 
     # 17. Field Verification Badge & Proof Upload API
     def handle_api_profile_verify(self):
-        global _ACTIVE_STUDENT_ROLL
         try:
+            user = self.get_authenticated_user()
             length = int(self.headers.get("Content-Length", 0))
             body_bytes = self.rfile.read(length)
             data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
-            roll = data.get("roll_number", _ACTIVE_STUDENT_ROLL).strip()
+            roll = user.get("roll_number") if user else None
+            if not roll:
+                roll = data.get("roll_number", "").strip()
             field = data.get("field", "cgpa").strip()
             claim = data.get("claim", "").strip()
             proof_file = data.get("proof_file") or data.get("document_name") or "Proof_Document.pdf"

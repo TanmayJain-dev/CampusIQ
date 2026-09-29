@@ -28,7 +28,9 @@ const state = {
   examWebSelectedSem: "all",
   // Student Community & Profile Segregation
   activeCommunitySubView: "directory",
+  sessionToken: localStorage.getItem("campusiq_session_token") || null,
   currentUser: null,
+  currentStudent: null,
   directoryStudents: [],
   selectedPeer: null,
   directoryFilter: "all",
@@ -1684,78 +1686,188 @@ function switchCommunitySubView(subview) {
 }
 
 async function fetchCurrentUser() {
+  if (!state.sessionToken) {
+    state.currentUser = null;
+    state.currentStudent = null;
+    renderHeaderAuth(null, null);
+    populateMyProfileUI(null, null);
+    return;
+  }
+
   try {
-    const res = await fetch("/api/auth/current");
+    const res = await fetch("/api/auth/me", {
+      headers: {
+        "Authorization": `Bearer ${state.sessionToken}`
+      }
+    });
     const data = await res.json();
-    if (data.status === "success" && data.student) {
-      state.currentUser = data.student;
-      updateHeaderUserChip(data.student);
-      populateMyProfileUI(data.student);
+    if (data.status === "success" && data.is_authenticated && data.user) {
+      state.currentUser = data.user;
+      state.currentStudent = data.student;
+      renderHeaderAuth(data.user, data.student);
+      populateMyProfileUI(data.user, data.student);
+    } else {
+      localStorage.removeItem("campusiq_session_token");
+      state.sessionToken = null;
+      state.currentUser = null;
+      state.currentStudent = null;
+      renderHeaderAuth(null, null);
+      populateMyProfileUI(null, null);
     }
   } catch (err) {
-    console.error("Failed to fetch current user:", err);
+    console.error("Failed to fetch current user session:", err);
+    renderHeaderAuth(null, null);
+    populateMyProfileUI(null, null);
   }
 }
 
-function updateHeaderUserChip(student) {
-  const avatar = document.getElementById("header-user-avatar");
-  const name = document.getElementById("header-user-name");
-  if (avatar && student.avatar) avatar.src = student.avatar;
-  if (name && student.name) name.innerText = student.name;
+function renderHeaderAuth(user, student) {
+  const container = document.getElementById("header-auth-container");
+  if (!container) return;
+
+  if (!user) {
+    container.innerHTML = `
+      <button onclick="openGoogleAuthModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all text-xs font-semibold shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+          <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Sign In</span>
+      </button>
+    `;
+    return;
+  }
+
+  const rollText = user.roll_number ? `Roll: ${user.roll_number}` : "Google Verified";
+  const avatarSrc = user.avatar_url || (student && student.profile && student.profile.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name)}`;
+
+  container.innerHTML = `
+    <div class="relative">
+      <button onclick="toggleUserDropdown(event)" class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-white/10 hover:border-indigo-500/50 hover:bg-zinc-800 transition-all text-xs text-zinc-200">
+        <img src="${avatarSrc}" class="w-6 h-6 rounded-full border border-indigo-500/40 bg-zinc-800 object-cover" />
+        <div class="text-left hidden sm:block">
+          <span class="font-semibold block leading-tight text-white text-[11px]">${user.name}</span>
+          <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            ${rollText}
+          </span>
+        </div>
+        <i data-lucide="chevron-down" class="w-3 h-3 text-zinc-400 ml-0.5"></i>
+      </button>
+
+      <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 py-1 rounded-xl bg-zinc-900 border border-white/10 shadow-2xl z-50 text-xs">
+        <div class="px-3 py-2 border-b border-white/5">
+          <p class="font-bold text-white truncate">${user.name}</p>
+          <p class="text-[10px] text-zinc-400 font-mono truncate">${user.email}</p>
+        </div>
+        <button onclick="switchTab('community'); switchCommunitySubView('myprofile'); toggleUserDropdown(null, false);" class="w-full text-left px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2">
+          <i data-lucide="user" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>My Profile & Privacy</span>
+        </button>
+        <button onclick="switchTab('results'); toggleUserDropdown(null, false);" class="w-full text-left px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2">
+          <i data-lucide="award" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>ExamWeb Results</span>
+        </button>
+        <div class="border-t border-white/5 mt-1 pt-1">
+          <button onclick="handleSignOut(); toggleUserDropdown(null, false);" class="w-full text-left px-3 py-2 text-red-400 hover:bg-red-500/10 flex items-center gap-2">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
 }
 
-function populateMyProfileUI(student) {
-  const p = student.profile || {};
+function toggleUserDropdown(e, forceState) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById("user-dropdown-menu");
+  if (!menu) return;
+  if (typeof forceState === "boolean") {
+    menu.classList.toggle("hidden", !forceState);
+  } else {
+    menu.classList.toggle("hidden");
+  }
+}
+
+document.addEventListener("click", () => {
+  toggleUserDropdown(null, false);
+});
+
+function populateMyProfileUI(user, student) {
+  const guestCard = document.getElementById("my-profile-guest-card");
+  const content = document.getElementById("my-profile-content");
+
+  if (!user) {
+    if (guestCard) guestCard.classList.remove("hidden");
+    if (content) content.classList.add("hidden");
+    return;
+  }
+
+  if (guestCard) guestCard.classList.add("hidden");
+  if (content) content.classList.remove("hidden");
+
   const avatar = document.getElementById("my-profile-avatar");
   const name = document.getElementById("my-profile-name");
   const sub = document.getElementById("my-profile-sub");
   const email = document.getElementById("my-profile-email");
+  const unlinkedBanner = document.getElementById("my-profile-unlinked-banner");
 
-  const avatarSrc = p.avatar_url || student.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${student.name || 'Tanmay'}`;
+  const avatarSrc = user.avatar_url || (student && student.profile && student.profile.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name)}`;
   if (avatar) avatar.src = avatarSrc;
-  if (name) name.innerText = student.name || 'Student';
-  if (sub) sub.innerText = `Roll: ${student.roll_number} • ${student.institution_name || 'MAIT'} ${student.branch || 'CSE'}`;
-  if (email) email.innerText = p.google_email || student.email || "student@ipu.ac.in";
+  if (name) name.innerText = user.name;
+  if (email) email.innerText = user.email;
 
-  // Privacy Checkboxes
-  const priv = p.privacy_settings || student.privacy_settings || student.privacy || {};
-  const setCheck = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.checked = val !== false;
-  };
-  setCheck("priv-public-profile", priv.public_profile !== false && priv.is_public !== false);
-  setCheck("priv-show-cgpa", priv.show_cgpa);
-  setCheck("priv-show-class", priv.show_class_details);
-  setCheck("priv-show-socials", priv.show_socials);
-  setCheck("priv-show-exp", priv.show_experience);
+  if (student) {
+    if (sub) sub.innerText = `Roll: ${student.roll_number} • ${student.institution_name || 'MAIT'} ${student.programme_name ? student.programme_name.split(' ')[0] : 'CSE'}`;
+    if (unlinkedBanner) unlinkedBanner.classList.add("hidden");
 
-  // Edit Profile Form
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.value = val || "";
-  };
-  setVal("edit-class-section", p.class_section || student.class_section);
-  setVal("edit-practical-group", p.practical_group || student.practical_group);
-  setVal("edit-bio", p.bio || student.bio);
-  
-  const socials = p.socials || student.socials || {};
-  setVal("edit-github", socials.github);
-  setVal("edit-linkedin", socials.linkedin);
-  setVal("edit-portfolio", socials.portfolio);
+    const p = student.profile || {};
+    const priv = p.privacy_settings || student.privacy_settings || student.privacy || {};
+    const setCheck = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = val !== false;
+    };
+    setCheck("priv-public-profile", priv.public_profile !== false && priv.is_public !== false);
+    setCheck("priv-show-cgpa", priv.show_cgpa);
+    setCheck("priv-show-class", priv.show_class_details);
+    setCheck("priv-show-socials", priv.show_socials);
+    setCheck("priv-show-exp", priv.show_experience);
 
-  // Normalize verifications
-  const rawVerifs = p.verifications || student.verifications || {};
-  const verifList = Array.isArray(rawVerifs)
-    ? rawVerifs
-    : Object.entries(rawVerifs).map(([f, v]) => ({
-        field: f,
-        claim: v.badge || v.claim || f,
-        status: v.status || "VERIFIED",
-        document_name: v.proof_file || v.proof_type || "Verified Audit",
-        verified_at: v.verified_at || "Active"
-      }));
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val || "";
+    };
+    setVal("edit-class-section", p.class_section || student.class_section);
+    setVal("edit-practical-group", p.practical_group || student.practical_group);
+    setVal("edit-bio", p.bio || student.bio);
 
-  renderMyVerifications(verifList);
+    const socials = p.socials || student.socials || {};
+    setVal("edit-github", socials.github);
+    setVal("edit-linkedin", socials.linkedin);
+    setVal("edit-portfolio", socials.portfolio);
+
+    const rawVerifs = p.verifications || student.verifications || {};
+    const verifList = Array.isArray(rawVerifs)
+      ? rawVerifs
+      : Object.entries(rawVerifs).map(([f, v]) => ({
+          field: f,
+          claim: v.badge || v.claim || f,
+          status: v.status || "VERIFIED",
+          document_name: v.proof_file || v.proof_type || "Verified Audit",
+          verified_at: v.verified_at || "Active"
+        }));
+    renderMyVerifications(verifList);
+  } else {
+    if (sub) sub.innerText = user.roll_number ? `Roll: ${user.roll_number}` : "Roll Number Not Linked";
+    if (unlinkedBanner) unlinkedBanner.classList.remove("hidden");
+    renderMyVerifications([]);
+  }
+
+  lucide.createIcons();
 }
 
 function renderMyVerifications(verifications) {
@@ -1977,7 +2089,10 @@ async function updatePrivacySettings() {
   try {
     const res = await fetch("/api/profile/update", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(state.sessionToken ? { "Authorization": `Bearer ${state.sessionToken}` } : {})
+      },
       body: JSON.stringify({
         roll_number: state.currentUser.roll_number,
         privacy: priv,
@@ -1986,7 +2101,6 @@ async function updatePrivacySettings() {
     });
     const data = await res.json();
     if (data.status === "success") {
-      state.currentUser = data.student;
       showToast("🔒 Privacy segregation rules updated live");
       fetchDirectoryStudents();
     }
@@ -2015,7 +2129,10 @@ async function saveProfileDetails(e) {
   try {
     const res = await fetch("/api/profile/update", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(state.sessionToken ? { "Authorization": `Bearer ${state.sessionToken}` } : {})
+      },
       body: JSON.stringify(payload)
     });
     const data = await res.json();
@@ -2210,71 +2327,135 @@ function closePeerModalOnBackdrop(e) {
 }
 
 function openGoogleAuthModal() {
-  const accountsList = document.getElementById("google-accounts-list");
-  if (!accountsList) return;
-
-  const mockGoogleUsers = [
-    { name: "Tanmay", email: "tanmay.jain@ipu.ac.in", roll: "08414802725", sec: "CSE-2", cgpa: "9.16" },
-    { name: "Aarav Sharma", email: "aarav.sharma@ipu.ac.in", roll: "08514802725", sec: "CSE-2", cgpa: "8.85" },
-    { name: "Rohan Gupta", email: "rohan.gupta@ipu.ac.in", roll: "08614802725", sec: "CSE-1", cgpa: "9.42" },
-    { name: "Priya Verma", email: "priya.verma@ipu.ac.in", roll: "08714802725", sec: "CSE-2", cgpa: "9.05" },
-    { name: "Devansh Malhotra", email: "devansh.malhotra@ipu.ac.in", roll: "08814802725", sec: "IT-1", cgpa: "8.70" }
-  ];
-
-  const currentRoll = state.currentUser ? state.currentUser.roll_number : "08414802725";
-
-  accountsList.innerHTML = mockGoogleUsers.map(u => {
-    const isCurrent = u.roll === currentRoll;
-    return `
-      <div onclick="switchGoogleAccount('${u.roll}')" class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isCurrent ? 'bg-indigo-600/10 border-indigo-500/40' : 'bg-zinc-900 border-white/5 hover:border-white/20'}">
-        <div class="flex items-center gap-3">
-          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=${u.name}" class="w-9 h-9 rounded-xl bg-zinc-800 border border-white/10" />
-          <div>
-            <h4 class="font-bold text-white flex items-center gap-1.5">
-              <span>${u.name}</span>
-              ${isCurrent ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">ACTIVE</span>` : ''}
-            </h4>
-            <p class="text-zinc-400 font-mono text-[11px]">${u.email}</p>
-          </div>
-        </div>
-        <div class="text-right font-mono text-[11px] text-zinc-400">
-          <div>${u.sec}</div>
-          <div class="text-emerald-400 font-bold">CGPA ${u.cgpa}</div>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  document.getElementById("google-auth-modal").classList.add("open");
+  const modal = document.getElementById("google-auth-modal");
+  if (!modal) return;
+  modal.classList.add("open");
+  lucide.createIcons();
 }
 
 function closeGoogleAuthModal() {
-  document.getElementById("google-auth-modal").classList.remove("open");
+  const modal = document.getElementById("google-auth-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
 }
 
 function closeGoogleAuthModalOnBackdrop(e) {
   if (e.target.id === "google-auth-modal") closeGoogleAuthModal();
 }
 
-async function switchGoogleAccount(roll) {
+function fillTanmayCredentials() {
+  const emailInput = document.getElementById("signin-email");
+  const nameInput = document.getElementById("signin-name");
+  const rollInput = document.getElementById("signin-roll");
+  if (emailInput) emailInput.value = "tanmay.jain@ipu.ac.in";
+  if (nameInput) nameInput.value = "Tanmay Jain";
+  if (rollInput) rollInput.value = "08414802725";
+}
+
+async function handleGoogleSignIn(e) {
+  e.preventDefault();
+  const email = document.getElementById("signin-email").value.trim();
+  const name = document.getElementById("signin-name").value.trim();
+  const roll = document.getElementById("signin-roll").value.trim();
+
+  const submitBtn = document.getElementById("btn-submit-signin");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span>Signing In...</span>`;
+  }
+
   try {
-    const res = await fetch("/api/auth/google", {
+    const res = await fetch("/api/auth/google/signin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email,
+        name: name,
+        roll_number: roll || null
+      })
+    });
+
+    const data = await res.json();
+    if (data.status === "success" && data.session_token) {
+      localStorage.setItem("campusiq_session_token", data.session_token);
+      state.sessionToken = data.session_token;
+      state.currentUser = data.user;
+      state.currentStudent = data.student;
+
+      renderHeaderAuth(data.user, data.student);
+      populateMyProfileUI(data.user, data.student);
+      closeGoogleAuthModal();
+      showToast(`🎉 Welcome, ${data.user.name}!`);
+      fetchDirectoryStudents();
+    } else {
+      showToast(data.message || "Failed to sign in.");
+    }
+  } catch (err) {
+    console.error("Sign in error:", err);
+    showToast("Sign in failed. Check network connection.");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<span>Sign In & Continue</span><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>`;
+      lucide.createIcons();
+    }
+  }
+}
+
+async function handleSignOut() {
+  if (state.sessionToken) {
+    try {
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${state.sessionToken}`
+        }
+      });
+    } catch (e) {}
+  }
+
+  localStorage.removeItem("campusiq_session_token");
+  state.sessionToken = null;
+  state.currentUser = null;
+  state.currentStudent = null;
+
+  renderHeaderAuth(null, null);
+  populateMyProfileUI(null, null);
+  showToast("👋 Signed out successfully");
+}
+
+async function handleLinkRollNumber() {
+  const rollInput = document.getElementById("link-roll-input");
+  if (!rollInput) return;
+  const roll = rollInput.value.trim();
+  if (!roll || roll.length !== 11) {
+    showToast("Please enter a valid 11-digit GGSIPU roll number.");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/auth/link-roll", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.sessionToken}`
+      },
       body: JSON.stringify({ roll_number: roll })
     });
     const data = await res.json();
-    if (data.status === "success" && data.student) {
-      state.currentUser = data.student;
-      updateHeaderUserChip(data.student);
-      populateMyProfileUI(data.student);
+    if (data.status === "success") {
+      if (state.currentUser) state.currentUser.roll_number = roll;
+      state.currentStudent = data.student;
+      renderHeaderAuth(state.currentUser, state.currentStudent);
+      populateMyProfileUI(state.currentUser, state.currentStudent);
+      showToast(`✅ Linked Roll Number: ${roll}`);
       fetchDirectoryStudents();
-      closeGoogleAuthModal();
-      showToast(`🎉 Signed in as ${data.student.name} (${roll})`);
+    } else {
+      showToast(data.message || "Failed to link roll number.");
     }
   } catch (err) {
-    console.error("Google auth switch error:", err);
-    showToast("Error switching account.");
+    console.error("Link roll error:", err);
+    showToast("Error linking roll number.");
   }
 }
 
