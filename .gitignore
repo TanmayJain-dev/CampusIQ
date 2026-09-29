@@ -32,3 +32,9 @@ student_result.json
 captcha_solution.txt
 cached_verified_result.json
 test_examweb_interactive.py
+
+# Auth secrets & credentials
+data/auth_config.json
+*secret*.json
+client_secret*.json
+

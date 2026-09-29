@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Google Identity Services (Sign in with Google) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="window.initGoogleIdentity && window.initGoogleIdentity()"></script>
 
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="/style.css">

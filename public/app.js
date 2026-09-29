@@ -2329,11 +2329,33 @@ function closePeerModalOnBackdrop(e) {
   if (e.target.id === "peer-modal") closePeerModal();
 }
 
+// Listen for postMessage from popup window (standard OAuth callback)
+window.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "GOOGLE_AUTH_SUCCESS") {
+    const data = event.data;
+    if (data.session_token) {
+      localStorage.setItem("campusiq_session_token", data.session_token);
+      state.sessionToken = data.session_token;
+      state.currentUser = data.user;
+      state.currentStudent = data.student;
+
+      renderHeaderAuth(data.user, data.student);
+      populateMyProfileUI(data.user, data.student);
+      closeGoogleAuthModal();
+      showToast(`🎉 Verified & Signed In as ${data.user.name}!`);
+      fetchDirectoryStudents();
+    }
+  }
+});
+
 function openGoogleAuthModal() {
   const modal = document.getElementById("google-auth-modal");
   if (!modal) return;
   modal.classList.add("open");
   lucide.createIcons();
+  if (typeof initGoogleIdentity === "function") {
+    initGoogleIdentity();
+  }
 }
 
 function closeGoogleAuthModal() {
@@ -2362,37 +2384,38 @@ async function loadAuthConfig() {
 
 // Initialize Google Identity Services (GIS)
 function initGoogleIdentity() {
-  if (typeof google === "undefined" || !google.accounts || !google.accounts.id) {
+  if (typeof google === "undefined" || !google.accounts) {
     return;
   }
   if (!state.googleClientId) return;
 
   try {
-    google.accounts.id.initialize({
-      client_id: state.googleClientId,
-      callback: handleGoogleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true
-    });
-
-    const container = document.getElementById("g-signin-container");
-    if (container) {
-      container.innerHTML = "";
-      google.accounts.id.renderButton(container, {
-        theme: "filled_black",
-        size: "large",
-        shape: "rectangular",
-        text: "signin_with",
-        logo_alignment: "left",
-        width: 320
+    if (google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: state.googleClientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
       });
-      const fallbackBtn = document.getElementById("btn-google-action");
-      if (fallbackBtn) fallbackBtn.classList.add("hidden");
+
+      const container = document.getElementById("g-signin-container");
+      if (container) {
+        container.innerHTML = "";
+        google.accounts.id.renderButton(container, {
+          theme: "filled_black",
+          size: "large",
+          shape: "rectangular",
+          text: "signin_with",
+          logo_alignment: "left",
+          width: 320
+        });
+      }
     }
   } catch (err) {
     console.warn("Google Identity Services initialization:", err);
   }
 }
+window.initGoogleIdentity = initGoogleIdentity;
 
 // Handler called when Google Identity Services completes authentication
 async function handleGoogleCredentialResponse(response) {
@@ -2431,19 +2454,90 @@ async function handleGoogleCredentialResponse(response) {
   }
 }
 
+// Handler called when Google access token is obtained via OAuth2 token client
+async function handleGoogleAccessToken(accessToken) {
+  showToast("🔐 Verifying Google access token...");
+  try {
+    const res = await fetch("/api/auth/google/access-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken })
+    });
+
+    const data = await res.json();
+    if (data.status === "success" && data.session_token) {
+      localStorage.setItem("campusiq_session_token", data.session_token);
+      state.sessionToken = data.session_token;
+      state.currentUser = data.user;
+      state.currentStudent = data.student;
+
+      renderHeaderAuth(data.user, data.student);
+      populateMyProfileUI(data.user, data.student);
+      closeGoogleAuthModal();
+      showToast(`🎉 Verified & Signed In as ${data.user.name}!`);
+      fetchDirectoryStudents();
+    } else {
+      showToast(data.message || "Google sign-in failed.");
+    }
+  } catch (err) {
+    console.error("Google access token error:", err);
+    showToast("Google sign in failed. Please try again.");
+  }
+}
+
 // User clicked the "Sign in with Google" button
 function handleGoogleSignInClick() {
-  if (state.googleClientId && typeof google !== "undefined" && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt();
+  // Strategy 1: If GIS OAuth2 token client is supported, use it for direct in-browser popup
+  if (state.googleClientId && typeof google !== "undefined" && google.accounts && google.accounts.oauth2) {
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: state.googleClientId,
+        scope: "openid email profile",
+        callback: async (resp) => {
+          if (resp && resp.access_token) {
+            await handleGoogleAccessToken(resp.access_token);
+          } else if (resp && resp.error) {
+            console.warn("Token client error:", resp);
+            openGoogleOAuthPopup();
+          }
+        }
+      });
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+      return;
+    } catch (e) {
+      console.warn("Token client init failed, falling back to popup:", e);
+    }
+  }
+
+  // Strategy 2: OAuth2 Server-side Code Exchange Popup
+  if (state.googleClientId) {
+    openGoogleOAuthPopup();
     return;
   }
 
+  // Strategy 3: Not configured yet
   const msg = "To enable 1-click Google OAuth popup, please enter your Google Cloud OAuth Client ID (or set GOOGLE_CLIENT_ID on Render). Would you like to enter it now?";
   if (confirm(msg)) {
     promptConfigureGoogleClientId();
   } else {
     switchAuthTab("signin");
     fillTanmayCredentials();
+  }
+}
+
+function openGoogleOAuthPopup() {
+  const width = 500;
+  const height = 650;
+  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+  const popup = window.open(
+    "/api/auth/google/login",
+    "google_oauth_popup",
+    `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,menubar=0,location=1`
+  );
+  if (!popup || popup.closed || typeof popup.closed === "undefined") {
+    // Popup was blocked by browser, redirect current window
+    window.location.href = "/api/auth/google/login";
   }
 }
 

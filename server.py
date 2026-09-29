@@ -67,14 +67,29 @@ _USERS: Dict[str, Dict[str, Any]] = {}
 
 def load_auth_config() -> Dict[str, Any]:
     config = {
-        "google_client_id": os.environ.get("GOOGLE_CLIENT_ID", "")
+        "google_client_id": (
+            os.environ.get("GOOGLE_CLIENT_ID") or
+            os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or
+            os.environ.get("CLIENT_ID") or
+            ""
+        ).strip(),
+        "google_client_secret": (
+            os.environ.get("GOOGLE_CLIENT_SECRET") or
+            os.environ.get("GOOGLE_AUTH_SECRET") or
+            os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET") or
+            os.environ.get("GOOGLE_SECRET") or
+            os.environ.get("CLIENT_SECRET") or
+            ""
+        ).strip()
     }
     if os.path.exists(AUTH_CONFIG_FILE):
         try:
             with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
                 saved = json.load(f)
-                if saved.get("google_client_id"):
+                if not config["google_client_id"] and saved.get("google_client_id"):
                     config["google_client_id"] = saved["google_client_id"]
+                if not config["google_client_secret"] and saved.get("google_client_secret"):
+                    config["google_client_secret"] = saved["google_client_secret"]
         except Exception:
             pass
     return config
@@ -473,6 +488,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_auth_me()
         elif path == "/api/auth/config":
             self.handle_api_auth_config()
+        elif path == "/api/auth/google/login":
+            self.handle_api_auth_google_login()
+        elif path == "/api/auth/google/callback":
+            self.handle_api_auth_google_callback(params)
         elif path == "/api/students/directory":
             self.handle_api_students_directory(params)
         elif path == "/api/results":
@@ -519,6 +538,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_auth_config_update()
         elif path in ("/api/auth/google/verify", "/api/auth/google"):
             self.handle_api_auth_google_verify()
+        elif path == "/api/auth/google/access-token":
+            self.handle_api_auth_google_access_token()
         elif path == "/api/auth/login":
             self.handle_api_auth_login()
         elif path == "/api/auth/register":
@@ -559,6 +580,21 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             pass
         except Exception as e:
             print(f"[!] Warning writing JSON response: {e}", file=sys.stderr)
+
+    def _send_html(self, html_content: str, status: int = 200):
+        try:
+            body = html_content.encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            for k, v in self.send_cors_headers().items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"[!] Warning writing HTML response: {e}", file=sys.stderr)
 
     # 1. Notices API
     def handle_api_notices(self, params: Dict[str, List[str]]):
@@ -901,7 +937,282 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
-    # 14b. Official Google Identity Services Token Verification
+    # 14b. Initiates Google OAuth 2.0 Web Popup/Redirect
+    def handle_api_auth_google_login(self):
+        cfg = load_auth_config()
+        client_id = cfg.get("google_client_id")
+        if not client_id:
+            self._send_json({"status": "error", "message": "Google Client ID is not configured."}, 400)
+            return
+
+        host = self.headers.get("Host", "campusiq-i9aq.onrender.com")
+        is_https = "onrender.com" in host or self.headers.get("X-Forwarded-Proto") == "https"
+        scheme = "https" if is_https else "http"
+        redirect_uri = f"{scheme}://{host}/api/auth/google/callback"
+
+        params = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "online",
+            "prompt": "select_account"
+        }
+        oauth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+        self.send_response(302)
+        self.send_header("Location", oauth_url)
+        self.end_headers()
+
+    # 14c. Google OAuth 2.0 Callback & Code Exchange
+    def handle_api_auth_google_callback(self, params: Dict[str, List[str]]):
+        code = params.get("code", [""])[0]
+        error = params.get("error", [""])[0]
+
+        if error:
+            error_html = f"""<!DOCTYPE html><html><body style="background:#09090b;color:#f87171;font-family:sans-serif;padding:30px;text-align:center;">
+            <h3>Google Sign-In Cancelled or Denied</h3>
+            <p style="color:#a1a1aa;font-size:13px;">Error: {error}</p>
+            <script>setTimeout(() => window.close(), 3000);</script>
+            </body></html>"""
+            self._send_html(error_html, 400)
+            return
+
+        if not code:
+            self._send_html("<h3 style='color:#f87171;'>Missing authorization code.</h3>", 400)
+            return
+
+        cfg = load_auth_config()
+        client_id = cfg.get("google_client_id")
+        client_secret = cfg.get("google_client_secret")
+
+        host = self.headers.get("Host", "campusiq-i9aq.onrender.com")
+        is_https = "onrender.com" in host or self.headers.get("X-Forwarded-Proto") == "https"
+        scheme = "https" if is_https else "http"
+        redirect_uri = f"{scheme}://{host}/api/auth/google/callback"
+
+        try:
+            token_url = "https://oauth2.googleapis.com/token"
+            token_payload = urllib.parse.urlencode({
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code"
+            }).encode("utf-8")
+
+            req = urllib.request.Request(token_url, data=token_payload, headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "CampusIQ-Server/2.0"
+            })
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                token_data = json.loads(resp.read().decode("utf-8"))
+
+            access_token = token_data.get("access_token")
+            id_token = token_data.get("id_token")
+
+            user_info = None
+            if access_token:
+                user_req = urllib.request.Request(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {access_token}", "User-Agent": "CampusIQ-Server/2.0"}
+                )
+                with urllib.request.urlopen(user_req, timeout=10) as uresp:
+                    user_info = json.loads(uresp.read().decode("utf-8"))
+            elif id_token:
+                id_req = urllib.request.Request(
+                    f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(id_token)}",
+                    headers={"User-Agent": "CampusIQ-Server/2.0"}
+                )
+                with urllib.request.urlopen(id_req, timeout=10) as idresp:
+                    user_info = json.loads(idresp.read().decode("utf-8"))
+
+            if not user_info:
+                raise Exception("Failed to retrieve profile information from Google.")
+
+            email = user_info.get("email", "").strip().lower()
+            name = user_info.get("name", "").strip() or email.split("@")[0].title()
+            avatar = user_info.get("picture", "").strip()
+            sub = user_info.get("sub", "").strip()
+
+            db = load_all_students_db()
+            student = None
+            roll = None
+            for r, s in db.items():
+                if s.get("email", "").lower() == email or (s.get("profile", {}).get("google_email", "").lower() == email):
+                    roll = r
+                    student = s
+                    break
+
+            users = load_users()
+            user_record = users.get(email)
+            if not user_record:
+                user_record = {
+                    "id": f"usr_google_{sub}",
+                    "email": email,
+                    "name": name,
+                    "avatar_url": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}",
+                    "roll_number": roll,
+                    "google_id": sub,
+                    "auth_provider": "google",
+                    "created_at": time.time()
+                }
+                users[email] = user_record
+                save_users(users)
+            else:
+                user_record["google_id"] = sub
+                user_record["auth_provider"] = "google"
+                if avatar:
+                    user_record["avatar_url"] = avatar
+                if roll and not user_record.get("roll_number"):
+                    user_record["roll_number"] = roll
+                users[email] = user_record
+                save_users(users)
+                roll = user_record.get("roll_number", roll)
+                if roll and roll in db:
+                    student = db[roll]
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": name,
+                "avatar_url": user_record.get("avatar_url", avatar),
+                "roll_number": roll,
+                "google_id": sub,
+                "auth_provider": "google",
+                "created_at": time.time()
+            }
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            auth_payload = json.dumps({
+                "type": "GOOGLE_AUTH_SUCCESS",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            })
+
+            html_response = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Google Sign-In Successful</title>
+</head>
+<body style="background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+  <div style="text-align:center;padding:24px;border:1px solid rgba(255,255,255,0.1);border-radius:16px;background:#18181b;max-width:320px;">
+    <div style="width:40px;height:40px;margin:0 auto 12px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:white;">✓</div>
+    <h3 style="margin:0 0 8px;font-size:16px;">Verified with Google!</h3>
+    <p style="color:#a1a1aa;font-size:12px;margin:0;">Logging into CampusIQ...</p>
+  </div>
+  <script>
+    const authData = {auth_payload};
+    if (window.opener) {{
+      window.opener.postMessage(authData, "*");
+      setTimeout(() => window.close(), 600);
+    }} else {{
+      localStorage.setItem("campusiq_session_token", authData.session_token);
+      window.location.href = "/";
+    }}
+  </script>
+</body>
+</html>"""
+            self._send_html(html_response)
+        except Exception as e:
+            error_html = f"""<!DOCTYPE html><html><body style="background:#09090b;color:#f87171;font-family:sans-serif;padding:30px;text-align:center;">
+            <h3>Google Authentication Failed</h3>
+            <p style="color:#a1a1aa;font-size:13px;">{str(e)}</p>
+            <script>setTimeout(() => window.close(), 5000);</script>
+            </body></html>"""
+            self._send_html(error_html, 500)
+
+    # 14d. Token Client Direct Access Token Exchange
+    def handle_api_auth_google_access_token(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            access_token = data.get("access_token", "").strip()
+
+            if not access_token:
+                self._send_json({"status": "error", "message": "Missing access_token."}, 400)
+                return
+
+            req = urllib.request.Request(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}", "User-Agent": "CampusIQ-Server/2.0"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                user_info = json.loads(resp.read().decode("utf-8"))
+
+            email = user_info.get("email", "").strip().lower()
+            name = user_info.get("name", "").strip() or email.split("@")[0].title()
+            avatar = user_info.get("picture", "").strip()
+            sub = user_info.get("sub", "").strip()
+
+            db = load_all_students_db()
+            student = None
+            roll = None
+            for r, s in db.items():
+                if s.get("email", "").lower() == email or (s.get("profile", {}).get("google_email", "").lower() == email):
+                    roll = r
+                    student = s
+                    break
+
+            users = load_users()
+            user_record = users.get(email)
+            if not user_record:
+                user_record = {
+                    "id": f"usr_google_{sub}",
+                    "email": email,
+                    "name": name,
+                    "avatar_url": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}",
+                    "roll_number": roll,
+                    "google_id": sub,
+                    "auth_provider": "google",
+                    "created_at": time.time()
+                }
+                users[email] = user_record
+                save_users(users)
+            else:
+                user_record["google_id"] = sub
+                user_record["auth_provider"] = "google"
+                if avatar:
+                    user_record["avatar_url"] = avatar
+                if roll and not user_record.get("roll_number"):
+                    user_record["roll_number"] = roll
+                users[email] = user_record
+                save_users(users)
+                roll = user_record.get("roll_number", roll)
+                if roll and roll in db:
+                    student = db[roll]
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": name,
+                "avatar_url": user_record.get("avatar_url", avatar),
+                "roll_number": roll,
+                "google_id": sub,
+                "auth_provider": "google",
+                "created_at": time.time()
+            }
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Successfully signed in with Google as {name}!",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # 14e. Official Google Identity Services Token Verification
     def handle_api_auth_google_verify(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
