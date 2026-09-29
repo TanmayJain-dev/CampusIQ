@@ -1,0 +1,823 @@
+{
+  "08414802725": {
+    "roll_number": "08414802725",
+    "name": "TANMAY",
+    "father_name": "MADAN LAL",
+    "mother_name": "PAYAL",
+    "institution_name": "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY",
+    "programme_name": "BACHELOR OF TECHNOLOGY (COMPUTER SCIENCE AND ENGINEERING)",
+    "batch": 2025,
+    "admission_year": 2025,
+    "photo_base64": "data:image/jpeg;base64,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",
+    "email": "pinkijain47@gmail.com",
+    "mobile": "9999651187",
+    "overall": {
+      "total_semesters": 2,
+      "total_credits": 44,
+      "credits_earned": 44,
+      "total_marks": 1838,
+      "max_marks": 2100,
+      "cgpa": 9.16,
+      "percentage": 87.52,
+      "exact_percentage": "87.524%",
+      "division": "FIRST DIVISION WITH DISTINCTION",
+      "result_status": "PASSED"
+    },
+    "semesters": [
+      {
+        "semester": 1,
+        "semester_name": "FIRST SEMESTER",
+        "examination": "December 2025",
+        "declared_date": "2026-01-17",
+        "total_subjects": 10,
+        "total_credits": 21,
+        "credits_earned": 21,
+        "total_marks": 893,
+        "max_marks": 1000,
+        "sgpa": 9.29,
+        "percentage": 89.3,
+        "result_status": "PASSED",
+        "cumulative_credits": 21,
+        "cumulative_cgpa": 9.29,
+        "subjects": [
+          {
+            "paper_code": "BS-103",
+            "paper_title": "APPLIED CHEMISTRY",
+            "credits": 3,
+            "internal_marks": "40",
+            "external_marks": "36",
+            "total_marks": 76,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "BS-105",
+            "paper_title": "APPLIED PHYSICS - I",
+            "credits": 3,
+            "internal_marks": "40",
+            "external_marks": "40",
+            "total_marks": 80,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "ES-107",
+            "paper_title": "ELECTRICAL SCIENCE",
+            "credits": 3,
+            "internal_marks": "38",
+            "external_marks": "50",
+            "total_marks": 88,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "BS-111",
+            "paper_title": "APPLIED MATHEMATICS - I",
+            "credits": 3,
+            "internal_marks": "40",
+            "external_marks": "49",
+            "total_marks": 89,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "HS-115",
+            "paper_title": "HUMAN VALUES AND ETHICS",
+            "credits": 2,
+            "internal_marks": "-",
+            "external_marks": "100",
+            "total_marks": 100,
+            "credits_secured": 2,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 20,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "ES-119",
+            "paper_title": "MANUFACTURING PROCESS",
+            "credits": 3,
+            "internal_marks": "40",
+            "external_marks": "39",
+            "total_marks": 79,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "BS-151",
+            "paper_title": "APPLIED PHYSICS- I LAB",
+            "credits": 1,
+            "internal_marks": "40",
+            "external_marks": "59",
+            "total_marks": 99,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "BS-155",
+            "paper_title": "APPLIED CHEMISTRY LAB",
+            "credits": 1,
+            "internal_marks": "40",
+            "external_marks": "52",
+            "total_marks": 92,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "ES-157",
+            "paper_title": "ENGINEERING GRAPHICS - I",
+            "credits": 1,
+            "internal_marks": "40",
+            "external_marks": "58",
+            "total_marks": 98,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          },
+          {
+            "paper_code": "ES-159",
+            "paper_title": "ELECTRICAL SCIENCE LAB",
+            "credits": 1,
+            "internal_marks": "39",
+            "external_marks": "53",
+            "total_marks": 92,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "December 2025",
+            "declared_date": "2026-01-17"
+          }
+        ]
+      },
+      {
+        "semester": 2,
+        "semester_name": "SECOND SEMESTER",
+        "examination": "May 2026",
+        "declared_date": "2026-07-04",
+        "total_subjects": 11,
+        "total_credits": 23,
+        "credits_earned": 23,
+        "total_marks": 945,
+        "max_marks": 1100,
+        "sgpa": 9.04,
+        "percentage": 85.91,
+        "result_status": "PASSED",
+        "cumulative_credits": 44,
+        "cumulative_cgpa": 9.16,
+        "subjects": [
+          {
+            "paper_code": "ES-102",
+            "paper_title": "PROGRAMMING IN 'C'",
+            "credits": 3,
+            "internal_marks": "40",
+            "external_marks": "57",
+            "total_marks": 97,
+            "credits_secured": 3,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 30,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "BS-106",
+            "paper_title": "APPLIED PHYSICS - II",
+            "credits": 3,
+            "internal_marks": "28",
+            "external_marks": "33",
+            "total_marks": 61,
+            "credits_secured": 3,
+            "grade": "B+",
+            "grade_point": 7,
+            "credit_points": 21,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "BS-110",
+            "paper_title": "ENVIRONMENTAL STUDIES",
+            "credits": 3,
+            "internal_marks": "36",
+            "external_marks": "46",
+            "total_marks": 82,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "BS-112",
+            "paper_title": "APPLIED MATHEMATICS -II",
+            "credits": 3,
+            "internal_marks": "35",
+            "external_marks": "43",
+            "total_marks": 78,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "HS-114",
+            "paper_title": "COMMUNICATION SKILLS",
+            "credits": 3,
+            "internal_marks": "37",
+            "external_marks": "52",
+            "total_marks": 89,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "BS-152",
+            "paper_title": "PHYSICS-II LAB",
+            "credits": 1,
+            "internal_marks": "38",
+            "external_marks": "44",
+            "total_marks": 82,
+            "credits_secured": 1,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 9,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "ES-154",
+            "paper_title": "PROGRAMMING IN 'C' LAB",
+            "credits": 1,
+            "internal_marks": "37",
+            "external_marks": "59",
+            "total_marks": 96,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "ES-158",
+            "paper_title": "ENGINEERING GRAPHICS - II",
+            "credits": 1,
+            "internal_marks": "37",
+            "external_marks": "58",
+            "total_marks": 95,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "BS-162",
+            "paper_title": "ENVIRONMENTAL STUDIES LAB",
+            "credits": 1,
+            "internal_marks": "39",
+            "external_marks": "58",
+            "total_marks": 97,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "ES-164",
+            "paper_title": "WORKSHOP TECHNOLOGY",
+            "credits": 1,
+            "internal_marks": "39",
+            "external_marks": "52",
+            "total_marks": 91,
+            "credits_secured": 1,
+            "grade": "O",
+            "grade_point": 10,
+            "credit_points": 10,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          },
+          {
+            "paper_code": "ES-114",
+            "paper_title": "ENGINEERING MECHANICS",
+            "credits": 3,
+            "internal_marks": "35",
+            "external_marks": "42",
+            "total_marks": 77,
+            "credits_secured": 3,
+            "grade": "A+",
+            "grade_point": 9,
+            "credit_points": 27,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          }
+        ]
+      }
+    ],
+    "backlogs": [],
+    "last_synced": "2026-09-29 15:31:20",
+    "profile": {
+      "google_id": "google_108414802725",
+      "google_email": "tanmay.jain@ipu.ac.in",
+      "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay",
+      "bio": "Systems Engineer & Creator of CampusIQ",
+      "class_section": "CSE-2",
+      "practical_group": "Group 2 (P2)",
+      "socials": {
+        "github": "https://github.com/TanmayJain-dev",
+        "linkedin": "https://linkedin.com/in/tanmay-jain-mait",
+        "portfolio": "https://tanmayjain.me",
+        "leetcode": "https://leetcode.com/tanmay_jain"
+      },
+      "privacy_settings": {
+        "public_profile": true,
+        "show_cgpa": true,
+        "show_class_details": true,
+        "show_socials": true,
+        "show_experience": true,
+        "show_marksheet": false
+      },
+      "verifications": {
+        "cgpa": {
+          "status": "VERIFIED",
+          "badge": "Official University Verified (9.16 CGPA)",
+          "verified_at": "2026-01-20",
+          "proof_type": "ExamWeb Marksheet Audit",
+          "proof_file": "08414802725_Complete_Result.pdf"
+        },
+        "class_group": {
+          "status": "VERIFIED",
+          "badge": "MAIT Department Verified (CSE-2 \u2022 Group 2)",
+          "verified_at": "2026-08-01",
+          "proof_type": "Student Identity Card"
+        },
+        "experience": {
+          "status": "VERIFIED",
+          "badge": "Lead Architect CampusIQ",
+          "verified_at": "2026-09-29",
+          "proof_type": "CampusIQ_Lead_Cert.pdf"
+        }
+      },
+      "experiences": [
+        {
+          "id": "exp_1",
+          "role": "Full-Stack & Systems Lead",
+          "company": "CampusIQ Core Project",
+          "duration": "June 2026 - Present",
+          "description": "Architected high-yield typeset academic vaults, instant results audit engine, and privacy-first directory.",
+          "proof_document": "CampusIQ_Engineering_Lead_Cert.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-08-15"
+        },
+        {
+          "id": "exp_2",
+          "role": "Open Source Contributor",
+          "company": "GitHub & Community",
+          "duration": "Jan 2025 - Present",
+          "description": "Maintained student utilities and automation scripts for GGSIPU affiliated colleges.",
+          "proof_document": "GitHub_Verification_Link.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-06-10"
+        }
+      ]
+    }
+  },
+  "08514802725": {
+    "roll_number": "08514802725",
+    "name": "AARAV SHARMA",
+    "father_name": "SANJAY SHARMA",
+    "mother_name": "RITU SHARMA",
+    "institution_name": "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY",
+    "programme_name": "BACHELOR OF TECHNOLOGY (COMPUTER SCIENCE AND ENGINEERING)",
+    "batch": 2025,
+    "admission_year": 2025,
+    "photo_base64": "",
+    "overall": {
+      "total_semesters": 2,
+      "total_credits": 44,
+      "credits_earned": 44,
+      "total_marks": 1756,
+      "max_marks": 2100,
+      "cgpa": 8.52,
+      "percentage": 83.62,
+      "exact_percentage": "83.619%",
+      "division": "FIRST DIVISION WITH DISTINCTION",
+      "result_status": "PASSED"
+    },
+    "semesters": [
+      {
+        "semester": 1,
+        "semester_name": "FIRST SEMESTER",
+        "examination": "December 2025",
+        "declared_date": "2026-01-17",
+        "total_subjects": 10,
+        "total_credits": 21,
+        "credits_earned": 21,
+        "total_marks": 835,
+        "max_marks": 1000,
+        "sgpa": 8.57,
+        "percentage": 83.5,
+        "result_status": "PASSED",
+        "cumulative_credits": 21,
+        "cumulative_cgpa": 8.57,
+        "subjects": []
+      },
+      {
+        "semester": 2,
+        "semester_name": "SECOND SEMESTER",
+        "examination": "May 2026",
+        "declared_date": "2026-07-04",
+        "total_subjects": 11,
+        "total_credits": 23,
+        "credits_earned": 23,
+        "total_marks": 921,
+        "max_marks": 1100,
+        "sgpa": 8.48,
+        "percentage": 83.73,
+        "result_status": "PASSED",
+        "cumulative_credits": 44,
+        "cumulative_cgpa": 8.52,
+        "subjects": []
+      }
+    ],
+    "backlogs": [],
+    "last_synced": "2026-09-29 14:50:00",
+    "profile": {
+      "google_id": "google_108514802725",
+      "google_email": "aarav.sharma@ipu.ac.in",
+      "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Aarav",
+      "bio": "Competitive Programmer & CSE Student @ MAIT | Codeforces Specialist",
+      "class_section": "CSE-1",
+      "practical_group": "Group 1 (P1)",
+      "socials": {
+        "github": "https://github.com/aarav-sharma-cpp",
+        "linkedin": "https://linkedin.com/in/aarav-sharma-mait",
+        "leetcode": "https://leetcode.com/aarav_cf"
+      },
+      "privacy_settings": {
+        "public_profile": true,
+        "show_cgpa": true,
+        "show_class_details": true,
+        "show_socials": true,
+        "show_experience": true,
+        "show_marksheet": false
+      },
+      "verifications": {
+        "cgpa": {
+          "status": "VERIFIED",
+          "badge": "University Seal Verified (8.52 CGPA)",
+          "verified_at": "2026-01-20",
+          "proof_type": "ExamWeb Official Marksheet"
+        },
+        "class_group": {
+          "status": "VERIFIED",
+          "badge": "MAIT Department Verified (CSE-1 \u2022 Group 1)",
+          "verified_at": "2026-08-01",
+          "proof_type": "Student Identity Card"
+        }
+      },
+      "experiences": [
+        {
+          "id": "exp_a1",
+          "role": "Technical Member",
+          "company": "ACM Student Chapter MAIT",
+          "duration": "Aug 2025 - Present",
+          "description": "Conducted weekly data structures workshops and algorithmic problem-solving sessions.",
+          "proof_document": "ACM_Chapter_Certificate.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-07-01"
+        }
+      ]
+    }
+  },
+  "08614802725": {
+    "roll_number": "08614802725",
+    "name": "ROHAN VERMA",
+    "father_name": "RAJESH VERMA",
+    "mother_name": "NEELAM VERMA",
+    "institution_name": "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY",
+    "programme_name": "BACHELOR OF TECHNOLOGY (COMPUTER SCIENCE AND ENGINEERING)",
+    "batch": 2025,
+    "admission_year": 2025,
+    "photo_base64": "",
+    "overall": {
+      "total_semesters": 2,
+      "total_credits": 44,
+      "credits_earned": 41,
+      "total_marks": 1512,
+      "max_marks": 2100,
+      "cgpa": 7.18,
+      "percentage": 72.0,
+      "exact_percentage": "72.000%",
+      "division": "FIRST DIVISION",
+      "result_status": "1 BACKLOG(S)"
+    },
+    "semesters": [
+      {
+        "semester": 1,
+        "semester_name": "FIRST SEMESTER",
+        "examination": "December 2025",
+        "declared_date": "2026-01-17",
+        "total_subjects": 10,
+        "total_credits": 21,
+        "credits_earned": 21,
+        "total_marks": 780,
+        "max_marks": 1000,
+        "sgpa": 7.81,
+        "percentage": 78.0,
+        "result_status": "PASSED",
+        "cumulative_credits": 21,
+        "cumulative_cgpa": 7.81,
+        "subjects": []
+      },
+      {
+        "semester": 2,
+        "semester_name": "SECOND SEMESTER",
+        "examination": "May 2026",
+        "declared_date": "2026-07-04",
+        "total_subjects": 11,
+        "total_credits": 23,
+        "credits_earned": 20,
+        "total_marks": 732,
+        "max_marks": 1100,
+        "sgpa": 6.61,
+        "percentage": 66.55,
+        "result_status": "RE-APPEAR",
+        "cumulative_credits": 41,
+        "cumulative_cgpa": 7.18,
+        "subjects": [
+          {
+            "paper_code": "BS-106",
+            "paper_title": "APPLIED PHYSICS - II",
+            "credits": 3,
+            "internal_marks": "18",
+            "external_marks": "16",
+            "total_marks": 34,
+            "credits_secured": 0,
+            "grade": "F",
+            "grade_point": 0,
+            "credit_points": 0,
+            "status_code": "08",
+            "exam_session": "May 2026",
+            "declared_date": "2026-07-04"
+          }
+        ]
+      }
+    ],
+    "backlogs": [
+      {
+        "semester": 2,
+        "paper_code": "BS-106",
+        "paper_title": "APPLIED PHYSICS - II",
+        "total_marks": 34,
+        "grade": "F",
+        "credits_lost": 3,
+        "reappear_session": "December 2026 / May 2027"
+      }
+    ],
+    "last_synced": "2026-09-29 14:50:00",
+    "profile": {
+      "google_id": "google_108614802725",
+      "google_email": "rohan.verma@ipu.ac.in",
+      "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Rohan",
+      "bio": "B.Tech CSE @ MAIT | Mobile App Enthusiast (Flutter & Kotlin) | Hackathon Participant",
+      "class_section": "CSE-3",
+      "practical_group": "Group 2 (P2)",
+      "socials": {
+        "github": "https://github.com/rohan-v-dev",
+        "linkedin": "https://linkedin.com/in/rohan-verma-tech"
+      },
+      "privacy_settings": {
+        "public_profile": true,
+        "show_cgpa": false,
+        "show_class_details": true,
+        "show_socials": true,
+        "show_experience": true,
+        "show_marksheet": false
+      },
+      "verifications": {
+        "class_group": {
+          "status": "VERIFIED",
+          "badge": "MAIT Department Verified (CSE-3 \u2022 Group 2)",
+          "verified_at": "2026-08-01",
+          "proof_type": "Student ID Card"
+        },
+        "experience": {
+          "status": "VERIFIED",
+          "badge": "Verified Hackathon Finalist",
+          "verified_at": "2026-04-10",
+          "proof_type": "Smart India Hackathon Zonal Certificate"
+        }
+      },
+      "experiences": [
+        {
+          "id": "exp_r1",
+          "role": "Lead Flutter Developer",
+          "company": "SIH Finalist Team",
+          "duration": "March 2026",
+          "description": "Built an offline-first disaster response mobile application with mesh networking.",
+          "proof_document": "SIH_Finalist_Certificate.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-04-10"
+        }
+      ]
+    }
+  },
+  "08714802725": {
+    "roll_number": "08714802725",
+    "name": "PRIYA SINGH",
+    "father_name": "RAJESH SINGH",
+    "institution_name": "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY",
+    "programme_name": "BACHELOR OF TECHNOLOGY (COMPUTER SCIENCE AND ENGINEERING)",
+    "batch": 2025,
+    "overall": {
+      "cgpa": 9.25,
+      "percentage": 88.4,
+      "total_semesters": 2,
+      "credits_earned": 44,
+      "result_status": "PASSED"
+    },
+    "semesters": [],
+    "backlogs": [],
+    "last_synced": "2026-09-29T15:00:00Z",
+    "profile": {
+      "google_id": "google_108714802725",
+      "google_email": "priya.singh@ipu.ac.in",
+      "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Priya",
+      "bio": "AI/ML Enthusiast | PyTorch & NLP | CSE Undergrad @ MAIT",
+      "class_section": "CSE-2",
+      "practical_group": "Group 2 (P2)",
+      "socials": {
+        "github": "https://github.com/priyasingh-ai",
+        "linkedin": "https://linkedin.com/in/priya-singh-ai",
+        "portfolio": "https://priyasingh.tech"
+      },
+      "privacy_settings": {
+        "public_profile": true,
+        "show_cgpa": true,
+        "show_class_details": true,
+        "show_socials": true,
+        "show_experience": true,
+        "show_marksheet": false
+      },
+      "verifications": {
+        "cgpa": {
+          "status": "VERIFIED",
+          "badge": "University Seal Verified (9.25 CGPA)",
+          "verified_at": "2026-01-20",
+          "proof_type": "ExamWeb Official Marksheet"
+        },
+        "class_group": {
+          "status": "VERIFIED",
+          "badge": "MAIT Department Verified (CSE-2 \u2022 Group 2)",
+          "verified_at": "2026-08-01",
+          "proof_type": "Student Identity Card"
+        },
+        "experience": {
+          "status": "VERIFIED",
+          "badge": "Verified Research Intern",
+          "verified_at": "2026-07-20",
+          "proof_type": "Research Internship Letter"
+        }
+      },
+      "experiences": [
+        {
+          "id": "exp_p1",
+          "role": "Machine Learning Research Intern",
+          "company": "AI Research Lab",
+          "duration": "May 2026 - Aug 2026",
+          "description": "Fine-tuned small language models for low-resource Indian languages.",
+          "proof_document": "Research_Internship_Offer_Letter.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-07-20"
+        }
+      ]
+    }
+  },
+  "08814802725": {
+    "roll_number": "08814802725",
+    "name": "DEVANSH GUPTA",
+    "father_name": "SANJAY GUPTA",
+    "institution_name": "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY",
+    "programme_name": "BACHELOR OF TECHNOLOGY (INFORMATION TECHNOLOGY)",
+    "batch": 2025,
+    "overall": {
+      "cgpa": 8.84,
+      "percentage": 84.1,
+      "total_semesters": 2,
+      "credits_earned": 44,
+      "result_status": "PASSED"
+    },
+    "semesters": [],
+    "backlogs": [],
+    "last_synced": "2026-09-29T15:00:00Z",
+    "profile": {
+      "google_id": "google_108814802725",
+      "google_email": "devansh.gupta@ipu.ac.in",
+      "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Devansh",
+      "bio": "IT Undergrad @ MAIT | Web3 & Cloud Architecture | Docker & Kubernetes",
+      "class_section": "IT-1",
+      "practical_group": "Group 1 (P1)",
+      "socials": {
+        "github": "https://github.com/devansh-k8s",
+        "linkedin": "https://linkedin.com/in/devansh-gupta"
+      },
+      "privacy_settings": {
+        "public_profile": true,
+        "show_cgpa": true,
+        "show_class_details": true,
+        "show_socials": true,
+        "show_experience": true,
+        "show_marksheet": false
+      },
+      "verifications": {
+        "cgpa": {
+          "status": "VERIFIED",
+          "badge": "University Seal Verified (8.84 CGPA)",
+          "verified_at": "2026-01-20",
+          "proof_type": "ExamWeb Official Marksheet"
+        },
+        "class_group": {
+          "status": "VERIFIED",
+          "badge": "MAIT Department Verified (IT-1 \u2022 Group 1)",
+          "verified_at": "2026-08-01",
+          "proof_type": "Student Identity Card"
+        }
+      },
+      "experiences": [
+        {
+          "id": "exp_d1",
+          "role": "DevOps Intern",
+          "company": "CloudScale Tech",
+          "duration": "July 2026 - Present",
+          "description": "Managed CI/CD pipelines, containerized microservices using Docker and automated deployments.",
+          "proof_document": "CloudScale_DevOps_Offer.pdf",
+          "verification_status": "VERIFIED",
+          "verified_at": "2026-07-25"
+        }
+      ]
+    }
+  }
+}

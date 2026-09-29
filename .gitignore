@@ -8,3 +8,27 @@ coverage/
 dist/
 .vercel
 .env*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# CampusIQ Scratch & Live Scrape Artifacts
+active_*.png
+live_*.png
+processed_captcha.png
+sample_captcha.png
+*session*.json
+*session*.txt
+login_*.html
+student_profile.html
+student_result.json
+captcha_solution.txt
+cached_verified_result.json
+test_examweb_interactive.py

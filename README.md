@@ -1,308 +1,121 @@
-# CampusIQ
+# 🎓 CampusIQ — Next-Gen Student Operating System & Automation Hub
 
-<div align="center">
-
-### 🎓 Your Academic Journey, Simplified.
-
-A modern academic analytics platform that transforms university result portals into a fast, beautiful, and insightful experience.
-
-**Built with:** Next.js • TypeScript • Prisma • PostgreSQL • Auth.js • Tailwind CSS
-
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-Active%20Development-orange)
-
-</div>
+> **State-of-the-Art Intelligence Infrastructure for GGSIPU & Affiliated Colleges (MAIT, USICT, MSIT, BVCOE, BPIT)**  
+> Engineered by Tanmay Jain for ATLAS (Automated Technologies & Logical Applications Society).
 
 ---
 
-## 🚀 About
+## ⚡ Quickstart
 
-CampusIQ is a modern academic platform designed to help university students securely access, visualize, and track their academic performance.
-
-Instead of navigating outdated university portals, students get a clean dashboard with meaningful analytics, historical performance tracking, and future-ready features like notifications and AI-powered academic insights.
-
-The platform is built around a provider-based architecture, allowing support for multiple universities without changing the core application.
-
----
-
-## ✨ Vision
-
-Our goal is simple:
-
-> Make checking university results as seamless as checking your bank account or email.
-
-CampusIQ aims to become the academic companion for every university student.
-
----
-
-# Current Development Status
-
-## ✅ Completed
-
-- Project Architecture
-- Next.js Foundation
-- Provider-based University Integration
-- Academic Synchronization Engine
-- Modular Infrastructure
-- Project Documentation
-- GitHub Repository Setup
-
----
-
-## 🚧 In Progress
-
-- Marketing Website
-- Authentication
-- Dashboard UI
-- University Result Integration
-
----
-
-## 📅 Planned
-
-- Interactive Analytics Dashboard
-- CGPA & SGPA Trends
-- Automatic Result Notifications
-- Multi-University Support
-- Placement Eligibility Tracker
-- AI Academic Insights
-- Mobile Optimization
-- Progressive Web App (PWA)
-
----
-
-# Features
-
-### 📊 Academic Analytics
-
-Visualize semester performance through interactive charts and dashboards.
-
----
-
-### 🔄 Result Synchronization
-
-Secure synchronization engine that fetches academic records from supported university portals.
-
----
-
-### 🔐 Secure Authentication
-
-Google OAuth and secure session management powered by Auth.js.
-
----
-
-### 🏛 Multi-University Ready
-
-Provider-based architecture makes adding new universities simple without modifying the core platform.
-
----
-
-### 📈 Performance Tracking
-
-Track your academic growth semester by semester.
-
----
-
-### 🔔 Smart Notifications *(Planned)*
-
-Receive alerts whenever new results become available.
-
----
-
-# Architecture
-
-CampusIQ follows a modular, scalable architecture inspired by modern SaaS platforms.
-
-```
-User
-   │
-   ▼
-Frontend (Next.js)
-
-   │
-   ▼
-
-Academic Service
-
-   │
-   ▼
-
-University Provider Interface
-
-   │
-   ├── IPU Provider
-   ├── DU Provider (Planned)
-   ├── AKTU Provider (Planned)
-   └── More...
-
-   │
-   ▼
-
-Synchronization Engine
-
-   │
-   ▼
-
-PostgreSQL Database
-```
-
----
-
-# Tech Stack
-
-## Frontend
-
-- Next.js (App Router)
-- React
-- TypeScript
-- Tailwind CSS
-
-## Backend
-
-- Prisma ORM
-- PostgreSQL
-- Auth.js
-
-## Infrastructure
-
-- Provider Pattern
-- Modular Synchronization Engine
-- Dependency Injection
-- Feature-Based Architecture
-
----
-
-# Project Structure
-
-```
-src/
-│
-├── app/
-├── components/
-├── features/
-├── infrastructure/
-├── lib/
-├── providers/
-├── services/
-└── types/
-```
-
----
-
-# Getting Started
-
-Clone the repository
+Launch the complete full-stack web application (frontend + backend + real-time scrapers) with a single command:
 
 ```bash
-git clone https://github.com/TanmayJain-dev/CampusIQ.git
+cd /home/tanmay/Workspaces/Projects/CampusIQ
+./run.sh
 ```
 
-Install dependencies
+Then open your browser at:  
+👉 **`http://localhost:5000`**
 
-```bash
-npm install
+---
+
+## 🏗️ What is CampusIQ?
+
+CampusIQ completely eliminates the fragmented, friction-heavy legacy university experience for engineering students:
+
+1. **📢 AI-Categorized Real-Time Noticeboard**:
+   - Ingests circulars every 30 minutes from **GGSIPU Central**, **GGSIPU Examination Division**, and **MAIT Campus Notices** via the active Render n8n workflow (`ezMMNBQLsuepJCiy`).
+   - Automatically segments notices into 7 academic streams (`Examinations & Datesheets`, `Results & Evaluations`, `Fees & Accounts`, `Scholarships & Welfare`, `Placements & Careers`, `Admissions`, `General Circulars`).
+   - Flags critical deadlines (`🔴 HIGH PRIORITY`, `🟡 NOTICE`, `🟢 INFO`).
+   - **Dual Action View**: View the high-impact "Pretty Typeset Card" or jump straight to the "Official University Circular".
+   - **1-Click Broadcast**: Instant copy button for WhatsApp, Discord, and Telegram announcements.
+
+2. **💎 CampusIQ Academic Study Resource Vault**:
+   - Indexed catalog of **231 university documents** and **52 publication-grade typeset PYQ master papers** in `/home/tanmay/Workspaces/Academics/College`.
+   - Complete coverage for all Semester 3 core subjects:
+     - Computational Methods (`ES-201`)
+     - Discrete Mathematics (`CIC-205`)
+     - Digital Logic & Computer Design (`ECC-207`)
+     - Data Structures (`CIC-209`)
+     - Object Oriented Programming in C++ (`CIC-211`)
+   - Built-in **In-Browser PDF Viewer** modal for instant preview with zero download friction.
+
+3. **📊 GGSIPU ExamWeb Marksheet Engine & Analytics**:
+   - Direct integration with official GGSIPU ExamWeb portal (`examweb.ggsipu.ac.in`).
+   - Generates authentic official-style GGSIPU Grade Card Marksheets with Internal, External, Total Marks, Grade, and verified credits (Semester 1 = 21, Semester 2 = 23 credits).
+   - In-app Captcha solver and live session manager.
+   - Comprehensive multi-semester progression tracking with SGPA & cumulative CGPA.
+   - Privacy-respecting grade security with optional public/private visibility.
+
+4. **💎 CampusIQ Hierarchical Study Vault**:
+   - Multi-tier structured hierarchy: **Semester ➔ Subject ➔ Category (Notes, Books, PYQs, Lab Manuals)**.
+   - Omnisearch filter instantly locates resources by paper title, subject code, or keyword across 231+ files.
+   - Built-in in-browser PDF preview.
+
+5. **👤 Student Profile Segregation & Peer Directory**:
+   - Google account authentication with personalized student profiles.
+   - Granular privacy controls: toggle visibility of CGPA, GitHub, LinkedIn, bio, practical group, and branch.
+   - Verified student badges with document verification hash.
+   - Campus Peer Directory to discover classmates and study groups.
+
+6. **🎯 Interactive SGPA Forecaster & Simulator**:
+   - Grade simulation modal using official university grading criteria to plan target scores for upcoming Mid-Sem and End-Sem exams.
+
+---
+
+## 🏛️ REST API Endpoints
+
+The built-in backend server (`server.py`) provides fast JSON APIs:
+
+| Endpoint | Method | Description |
+| :--- | :---: | :--- |
+| `/api/notices` | `GET` | Live multi-college notices with AI summaries. Query params: `college`, `category`, `urgency`, `search`, `limit`. |
+| `/api/resources` | `GET` | Academic study vault catalog. Query params: `semester`, `subject`, `category`, `typeset`, `search`. |
+| `/api/resources/tree` | `GET` | 3-tier hierarchical study vault taxonomy tree. |
+| `/api/resources/view` | `GET` | In-browser PDF stream preview. Query param: `path`. |
+| `/api/examweb/session` | `GET` | Initiates official ExamWeb session and fetches live captcha image. |
+| `/api/examweb/login` | `POST` | Authenticates with ExamWeb, extracts marksheet, and syncs student database. |
+| `/api/students/directory`| `GET` | Public peer directory of student profiles with privacy segregation. |
+| `/api/students/profile` | `GET/POST`| Fetch or update individual student profile details and privacy toggles. |
+| `/api/colleges` | `GET` | Metadata mapping of GGSIPU colleges and programme codes. |
+| `/api/stats` | `GET` | Real-time system operational metrics and catalog counts. |
+
+---
+
+## 📁 Repository Structure
+
+```
+/home/tanmay/Workspaces/Projects/CampusIQ/
+├── run.sh                          # One-click platform launcher
+├── server.py                       # High-speed HTTP & REST API server
+├── campusiq_examweb.py             # ExamWeb portal client & marksheet parser
+├── campusiq_results_extractor.py   # PyMuPDF tabulation sheet parser & scraper
+├── campusiq_cataloguer.py          # Academic study resource indexer
+├── render.yaml                     # Render Infrastructure as Code blueprint
+├── requirements.txt                # Python production dependencies
+├── sample_result.pdf               # Local benchmark result tabulation sheet
+├── data/
+│   ├── catalog_cache.json          # Pre-indexed cloud catalog of 231+ academic resources
+│   └── students_database.json      # Persistent student profiles with privacy controls
+├── public/
+│   ├── index.html                  # Single Page Web Application
+│   ├── app.js                      # Reactive frontend controller
+│   └── style.css                   # Obsidian dark-mode design system
+└── README.md                       # Complete documentation
 ```
 
-Run the development server
-
-```bash
-npm run dev
-```
-
 ---
 
-# Environment Variables
+## 🚀 Deployment (Render)
 
-Create a `.env.local` file.
+CampusIQ is ready for 1-click deployment on Render:
 
-```env
-DATABASE_URL=
+- **Runtime**: Python 3
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `python3 server.py`
+- **Region**: Singapore (`singapore`)
+- **Plan**: Free / Starter
+- **Environment Variables**:
+  - `PORT`: (Provided automatically by Render)
+  - `N8N_WEBHOOK_URL`: `https://n8n-tanmay.onrender.com/webhook/campusiq-notices`
 
-AUTH_SECRET=
-
-AUTH_GOOGLE_ID=
-
-AUTH_GOOGLE_SECRET=
-
-NEXT_PUBLIC_APP_URL=
-```
-
----
-
-# Roadmap
-
-### Version 0.1
-
-- [x] Architecture
-- [x] Synchronization Engine
-- [x] Provider Framework
-
----
-
-### Version 0.2
-
-- [ ] Landing Page
-- [ ] Authentication
-- [ ] Database Integration
-
----
-
-### Version 0.3
-
-- [ ] Result Viewer
-- [ ] Dashboard
-- [ ] Charts
-
----
-
-### Version 0.4
-
-- [ ] Notifications
-- [ ] Historical Tracking
-- [ ] Mobile Support
-
----
-
-### Version 1.0
-
-- [ ] Multi-University Support
-- [ ] AI Insights
-- [ ] Public Launch
-
----
-
-# Contributing
-
-Contributions, feature suggestions, and bug reports are welcome.
-
-Please read the `CONTRIBUTING.md` guide before opening a pull request.
-
----
-
-# License
-
-This project is licensed under the MIT License.
-
----
-
-# Author
-
-**Tanmay Jain**
-
-Computer Science Student • Software Engineer
-
-GitHub:
-
-https://github.com/TanmayJain-dev
-
----
-
-<div align="center">
-
-### ⭐ If you like this project, consider giving it a star!
-
-Building the future of academic analytics, one university at a time.
-
-</div>

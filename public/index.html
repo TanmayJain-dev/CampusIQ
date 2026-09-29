@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusIQ — Next-Gen Student Operating System & Automation Hub</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+            obsidian: {
+              900: '#09090b',
+              800: '#121214',
+              700: '#18181b',
+              600: '#27272a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="bg-[#09090b] text-zinc-100 min-h-screen relative flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+
+  <!-- Analog Film Grain -->
+  <div class="analog-grain"></div>
+
+  <!-- Ambient Top Glow -->
+  <div class="ambient-glow"></div>
+
+  <!-- Top Glass Navigation -->
+  <header class="sticky top-0 z-40 w-full glass-nav px-4 lg:px-8 py-3 transition-all duration-200">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-[0_0_16px_rgba(59,130,246,0.4)]">
+          <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-tight text-white">Campus<span class="text-blue-500">IQ</span></span>
+            <span class="px-2 py-0.5 text-[10px] font-mono rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold uppercase tracking-wider">v2.0 Elite</span>
+          </div>
+          <p class="text-[11px] text-zinc-500 hidden sm:block">Automated Student OS for GGSIPU & Affiliated Colleges</p>
+        </div>
+      </div>
+
+      <!-- Center Tabs -->
+      <nav class="hidden md:flex items-center gap-1 bg-zinc-900/70 p-1 rounded-xl border border-white/5 backdrop-blur-md">
+        <button onclick="switchTab('notices')" id="nav-notices" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 shadow-[0_0_12px_rgba(59,130,246,0.3)] transition-all flex items-center gap-1.5">
+          <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+          <span>Live Notices</span>
+        </button>
+        <button onclick="switchTab('resources')" id="nav-resources" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="book-marked" class="w-3.5 h-3.5"></i>
+          <span>Study Vault</span>
+        </button>
+        <button onclick="switchTab('results')" id="nav-results" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+          <span>Results & Ranks</span>
+        </button>
+        <button onclick="switchTab('community')" id="nav-community" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="users-round" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>Community</span>
+        </button>
+        <button onclick="switchTab('admin')" id="nav-admin" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Faculty Roster</span>
+        </button>
+        <button onclick="switchTab('atlas')" id="nav-atlas" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+          <span>ATLAS Hub</span>
+        </button>
+      </nav>
+
+      <!-- Right: Google Account & College Profile -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Google Student Identity Trigger -->
+        <button onclick="openGoogleAuthModal()" class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900/90 border border-white/10 hover:border-indigo-500/50 hover:bg-zinc-800/80 transition-all text-xs text-zinc-200 shadow-sm" title="Google Student Account">
+          <img id="header-user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay" class="w-6 h-6 rounded-full border border-indigo-500/40 bg-zinc-800 object-cover" />
+          <div class="text-left hidden sm:block">
+            <span id="header-user-name" class="font-semibold block leading-tight text-white text-[11px]">Tanmay</span>
+            <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Google Verified
+            </span>
+          </div>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-zinc-400 ml-0.5"></i>
+        </button>
+
+        <button onclick="openProfileModal()" class="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-900/60 border border-white/5 hover:border-white/15 transition-all text-xs text-zinc-400 hover:text-zinc-300">
+          <div class="text-left">
+            <span id="active-college-label" class="font-medium block leading-tight text-zinc-300 text-[11px]">MAIT</span>
+            <span id="active-branch-label" class="text-[9px] text-zinc-500 font-mono">CSE • Sem 3</span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mobile Nav Bar (Bottom pinned or second row) -->
+    <div class="md:hidden flex items-center justify-around pt-2.5 mt-2 border-t border-white/5 text-xs text-zinc-400">
+      <button onclick="switchTab('notices')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-blue-400" id="m-nav-notices">
+        <i data-lucide="bell" class="w-4 h-4"></i>
+        <span class="text-[10px]">Notices</span>
+      </button>
+      <button onclick="switchTab('resources')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1" id="m-nav-resources">
+        <i data-lucide="book-marked" class="w-4 h-4"></i>
+        <span class="text-[10px]">Vault</span>
+      </button>
+      <button onclick="switchTab('results')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1" id="m-nav-results">
+        <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+        <span class="text-[10px]">Results</span>
+      </button>
+      <button onclick="switchTab('community')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1" id="m-nav-community">
+        <i data-lucide="users-round" class="w-4 h-4 text-indigo-400"></i>
+        <span class="text-[10px]">Community</span>
+      </button>
+      <button onclick="switchTab('admin')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1" id="m-nav-admin">
+        <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
+        <span class="text-[10px]">Faculty</span>
+      </button>
+      <button onclick="switchTab('atlas')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1" id="m-nav-atlas">
+        <i data-lucide="cpu" class="w-4 h-4"></i>
+        <span class="text-[10px]">ATLAS</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 lg:px-8 py-8 flex-1 w-full relative z-10">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: LIVE AI NOTICEBOARD -->
+    <!-- ========================================================================= -->
+    <section id="tab-notices" class="tab-pane block space-y-6">
+      
+      <!-- Top Alert / Metric Banner -->
+      <div class="p-6 rounded-2xl glass-card relative overflow-hidden border border-white/10">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-medium mb-3">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
+              Live Multi-College Crawl Active
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              AI-Categorized College Noticeboard
+            </h1>
+            <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
+              Consolidated real-time circulars from GGSIPU Examination Division, Main University Portal, and MAIT Campus Noticeboard. Never miss a critical datesheet or fee deadline.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
+              <span id="stat-high-priority" class="text-lg font-bold text-red-400">0</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Urgent Alerts</span>
+            </div>
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
+              <span id="stat-total-notices" class="text-lg font-bold text-blue-400">0</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Total Active</span>
+            </div>
+            <button onclick="fetchNotices(true)" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition-all" title="Refresh Live Notices">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="mt-6 pt-6 border-t border-white/5 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <!-- Search Input -->
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+            <input type="text" id="notice-search" placeholder="Search notices, datesheets, admit cards..." oninput="filterNotices()" class="w-full pl-10 pr-4 py-2 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
+          </div>
+
+          <!-- Category Pills -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none text-xs">
+            <button onclick="setNoticeCategory('')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium whitespace-nowrap transition-all" data-cat="">All Streams</button>
+            <button onclick="setNoticeCategory('Examinations')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Examinations">Datesheets & Exams</button>
+            <button onclick="setNoticeCategory('Results')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Results">Results</button>
+            <button onclick="setNoticeCategory('Fees')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Fees">Fees & Accounts</button>
+            <button onclick="setNoticeCategory('Scholarships')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Scholarships">Scholarships</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notices Grid -->
+      <div id="notices-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Rendered dynamically -->
+        <div class="col-span-full py-16 text-center text-zinc-500">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+          <p class="text-xs">Fetching real-time circulars from n8n notice engine...</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: CAMPUSIQ ACADEMIC STUDY VAULT (HIERARCHICAL) -->
+    <!-- ========================================================================= -->
+    <section id="tab-resources" class="tab-pane hidden space-y-6">
+      
+      <!-- Vault Header -->
+      <div class="p-6 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium mb-3">
+              <i data-lucide="gem" class="w-3.5 h-3.5"></i>
+              Official Academic Resource Vault
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              Hierarchical Academic Library
+            </h1>
+            <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
+              Curated, publication-grade LaTeX typeset question papers, lecture notes, lab manuals, and official syllabi organized hierarchically by semester and subject.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
+              <span id="stat-typeset-count" class="text-lg font-bold text-emerald-400">52</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Typeset Masters</span>
+            </div>
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
+              <span id="stat-total-resources" class="text-lg font-bold text-blue-400">231</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Total Documents</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Universal Instant Search Bar -->
+        <div class="mt-6 pt-6 border-t border-white/5">
+          <div class="relative flex items-center">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 text-zinc-400"></i>
+            <input type="text" id="resource-search" placeholder="Search any document by name, topic, paper code, session (e.g. data structures, am-2, mid sem, 2024)..." oninput="handleUniversalResourceSearch()" class="w-full pl-10 pr-24 py-2.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+            <button id="resource-search-clear" onclick="clearResourceSearch()" class="hidden absolute right-3 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-400 hover:text-white font-mono">CLEAR</button>
+          </div>
+          <div id="resource-search-status" class="hidden mt-2 text-xs text-zinc-400 flex items-center justify-between">
+            <span id="resource-search-count">0 matching documents found</span>
+            <span class="text-[10px] font-mono text-zinc-500">Universal Index Search</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Results Container (Shown when search is active) -->
+      <div id="vault-search-results-container" class="hidden space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-white/5">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="search" class="w-4 h-4 text-emerald-400"></i>
+            Search Results
+          </h3>
+          <span class="text-xs text-zinc-500 font-mono" id="search-results-summary">Showing matches</span>
+        </div>
+        <div id="vault-search-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Hierarchical Tree Navigation (Default View) -->
+      <div id="vault-hierarchical-container" class="space-y-6">
+        <!-- Tier 1: Semester Selector Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
+          <button onclick="setVaultSemester(3)" id="vault-sem-btn-3" class="vault-sem-btn px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold flex items-center gap-2 transition-all shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span>Semester 3 (Current)</span>
+            <span class="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono" id="sem3-count">7 Subjects</span>
+          </button>
+          <button onclick="setVaultSemester(2)" id="vault-sem-btn-2" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span>Semester 2</span>
+            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem2-count">6 Subjects</span>
+          </button>
+          <button onclick="setVaultSemester(1)" id="vault-sem-btn-1" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span>Semester 1</span>
+            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem1-count">6 Subjects</span>
+          </button>
+          <label class="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/90 border border-white/10 text-zinc-300 cursor-pointer select-none">
+            <input type="checkbox" id="typeset-only-toggle" onchange="toggleTypesetOnlyFilter()" class="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0">
+            <span class="text-[11px] font-semibold text-emerald-400">💎 Typeset Only</span>
+          </label>
+        </div>
+
+        <!-- Tier 2: Subject Explorer Cards Grid -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span>SELECT SUBJECT</span>
+            <span id="active-sem-label" class="text-emerald-400 font-semibold">Semester 3 Curriculum</span>
+          </div>
+          <div id="vault-subject-pills" class="flex flex-wrap gap-2 text-xs">
+            <!-- Dynamically populated subject buttons -->
+          </div>
+        </div>
+
+        <!-- Tier 3: Categorized Trays Under Active Subject -->
+        <div id="vault-category-trays" class="space-y-6 pt-2">
+          <!-- Populated dynamically with Notes, Books, Mid-Sems, End-Sems, Lab Files, Syllabus -->
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: GGSIPU RESULT & MARKSHEET HUB -->
+    <!-- ========================================================================= -->
+    <section id="tab-results" class="tab-pane hidden space-y-6">
+      
+      <!-- Top Title Bar -->
+      <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-white/5">
+        <div>
+          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <i data-lucide="graduation-cap" class="w-6 h-6 text-blue-500"></i>
+            Official GGSIPU ExamWeb Result Portal
+          </h2>
+          <p class="text-xs text-zinc-400 mt-0.5">Real-time examination marksheet generator and verified credit audit directly from examweb.ggsipu.ac.in.</p>
+        </div>
+        <button onclick="openGpaModal()" class="px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 text-xs font-semibold flex items-center gap-2 transition-all shadow-sm">
+          <i data-lucide="calculator" class="w-4 h-4"></i>
+          <span>Simulate Next Term SGPA</span>
+        </button>
+      </div>
+
+      <!-- OFFICIAL EXAMWEB LIVE PORTAL -->
+      <div id="view-examweb" class="space-y-6">
+        
+        <!-- Login & Captcha Card -->
+        <div id="examweb-login-card" class="p-6 sm:p-8 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+          <div class="max-w-2xl mx-auto space-y-5">
+            <div class="text-center space-y-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-medium">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                Official ExamWeb Relay Engine (examweb.ggsipu.ac.in)
+              </div>
+              <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                Download Official GGSIPU Marksheet
+              </h1>
+              <p class="text-zinc-400 text-xs sm:text-sm">
+                Connects directly to the university examination portal in real-time. Fetches your official student photo, internal/external marks breakdown, and generates a print-ready GGSIPU Grade Card.
+              </p>
+            </div>
+
+            <!-- ExamWeb Login Form -->
+            <form onsubmit="handleExamWebLogin(event)" class="space-y-4 pt-2">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Enrollment Number -->
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-zinc-300 font-mono uppercase tracking-wider">
+                    Student Enrollment No.
+                  </label>
+                  <div class="relative">
+                    <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                    <input type="text" id="examweb-username" value="08414802725" required placeholder="e.g. 08414802725" class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all tracking-wider">
+                  </div>
+                </div>
+
+                <!-- Password -->
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-zinc-300 font-mono uppercase tracking-wider">
+                    Portal Password
+                  </label>
+                  <div class="relative">
+                    <i data-lucide="key-round" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                    <input type="password" id="examweb-password" value="Tanmay@2008" required placeholder="Enter ExamWeb password" class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
+                    <button type="button" onclick="togglePasswordVisibility('examweb-password')" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200">
+                      <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Security Captcha Row -->
+              <div class="p-4 rounded-xl bg-zinc-900/80 border border-white/10 space-y-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-xs font-mono font-semibold text-zinc-300 uppercase">
+                    Security Verification (CAPTCHA)
+                  </span>
+                  <div id="ocr-suggestion-container" class="hidden">
+                    <button type="button" onclick="applyOcrSuggestion()" class="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1 transition-all">
+                      <span>✨ Auto-suggest:</span>
+                      <strong id="ocr-suggestion-text" class="text-white"></strong>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <!-- Captcha Display Box -->
+                  <div class="flex items-center gap-2 bg-white rounded-lg p-1.5 border border-zinc-700 min-w-[190px] justify-between">
+                    <div id="captcha-image-wrapper" class="flex items-center justify-center min-h-[38px]">
+                      <span class="text-xs text-zinc-500 font-mono">Loading CAPTCHA...</span>
+                    </div>
+                    <button type="button" onclick="refreshExamWebCaptcha()" title="Refresh Captcha" class="p-1.5 rounded hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 transition-all">
+                      <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+
+                  <!-- Captcha Input -->
+                  <div class="flex-1">
+                    <input type="text" id="examweb-captcha" required maxlength="10" placeholder="Type letters shown in image above" class="w-full px-4 py-2.5 rounded-xl bg-zinc-950 border border-white/15 text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all tracking-wider text-center sm:text-left">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Submit Buttons -->
+              <div class="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                <button type="submit" id="btn-examweb-submit" class="flex-1 w-full py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i>
+                  <span>Fetch Result & Generate Official Marksheet</span>
+                </button>
+                <button type="button" onclick="loadExamWebDemo()" class="w-full sm:w-auto py-3 px-5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5">
+                  <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                  <span>⚡ Instant Preview (Verified Student)</span>
+                </button>
+              </div>
+
+              <!-- Status Notification -->
+              <div id="examweb-status" class="hidden text-xs text-center p-3 rounded-xl"></div>
+
+              <!-- Privacy Notice -->
+              <p class="text-[11px] text-zinc-500 text-center font-mono pt-1">
+                🔒 Privacy Invariant: Credentials are used ephemerally to salt the session challenge and are never permanently stored.
+              </p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Marksheet Display Container -->
+        <div id="examweb-marksheet-container" class="hidden space-y-4">
+          <!-- Rendered dynamically -->
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: STUDENT COMMUNITY & PROFILE SEGREGATION HUB -->
+    <!-- ========================================================================= -->
+    <section id="tab-community" class="tab-pane hidden space-y-6">
+      
+      <!-- Community Hub Header -->
+      <div class="p-6 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-medium mb-3">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              Verified Student Directory & Privacy Controls
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              Student Profiles & Community Network
+            </h1>
+            <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
+              Connect with classmates in your class section and practical lab group. Customize your privacy visibility and earn official verified badges on CGPA and technical experience.
+            </p>
+          </div>
+          
+          <!-- Sub-Tab Switcher -->
+          <div class="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900 border border-white/5 text-xs">
+            <button onclick="switchCommunitySubView('directory')" id="subnav-directory" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+              <i data-lucide="users" class="w-3.5 h-3.5"></i>
+              <span>Directory</span>
+            </button>
+            <button onclick="switchCommunitySubView('myprofile')" id="subnav-myprofile" class="px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-white font-medium flex items-center gap-1.5 transition-all">
+              <i data-lucide="user" class="w-3.5 h-3.5"></i>
+              <span>My Profile & Privacy</span>
+            </button>
+            <button onclick="switchCommunitySubView('verify')" id="subnav-verify" class="px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-white font-medium flex items-center gap-1.5 transition-all">
+              <i data-lucide="badge-check" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Get Verified</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- SUB-VIEW 1: PEER DIRECTORY (EXPLORE OTHERS' PROFILES) -->
+      <!-- ===================================================================== -->
+      <div id="subview-directory" class="space-y-6">
+        <!-- Search & Filter Controls -->
+        <div class="p-4 rounded-xl bg-zinc-900/60 border border-white/5 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between text-xs">
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+            <input type="text" id="directory-search" placeholder="Search by name, roll, section (CSE-2), group (Group 2)..." oninput="filterDirectoryPeers()" class="w-full pl-10 pr-4 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-all">
+          </div>
+
+          <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            <button onclick="setDirectoryFilter('all')" class="dir-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium whitespace-nowrap" data-filter="all">All Students</button>
+            <button onclick="setDirectoryFilter('CSE-2')" class="dir-filter-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white font-medium whitespace-nowrap" data-filter="CSE-2">Section CSE-2</button>
+            <button onclick="setDirectoryFilter('Group 2')" class="dir-filter-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white font-medium whitespace-nowrap" data-filter="Group 2">Group 2 (P2)</button>
+            <button onclick="setDirectoryFilter('verified_cgpa')" class="dir-filter-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white font-medium whitespace-nowrap" data-filter="verified_cgpa">Verified CGPA</button>
+          </div>
+        </div>
+
+        <!-- Student Peer Cards Grid -->
+        <div id="directory-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- SUB-VIEW 2: MY PROFILE & PRIVACY CONTROLS -->
+      <!-- ===================================================================== -->
+      <div id="subview-myprofile" class="hidden space-y-6">
+        
+        <!-- Profile Identity Card -->
+        <div class="p-6 rounded-2xl bg-zinc-900/90 border border-white/10">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
+            <div class="flex items-center gap-4">
+              <div class="relative">
+                <img id="my-profile-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay" class="w-16 h-16 rounded-2xl border-2 border-indigo-500/50 bg-zinc-800 object-cover shadow-lg" />
+                <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-zinc-900"></span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 id="my-profile-name" class="text-xl font-bold text-white">Tanmay</h2>
+                  <span id="my-profile-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">VERIFIED STUDENT</span>
+                </div>
+                <p id="my-profile-sub" class="text-xs text-zinc-400 font-mono mt-0.5">Roll: 08414802725 • MAIT CSE</p>
+                <p id="my-profile-email" class="text-xs text-indigo-400 font-mono mt-0.5">tanmay.jain@ipu.ac.in</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button onclick="openGoogleAuthModal()" class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-2 transition-all">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Switch Google Account</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Privacy Granular Toggles -->
+          <div class="mt-6 space-y-4">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+              Granular Privacy Segregation Settings
+            </h3>
+            <p class="text-xs text-zinc-400">
+              Control exactly which parts of your academic profile and credentials are visible to other students in the directory.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              
+              <!-- Toggle: Public Profile -->
+              <div class="p-3.5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-white block">Public Profile in Directory</span>
+                  <span class="text-[11px] text-zinc-500">Allow other students to find you in the directory</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="priv-public-profile" onchange="updatePrivacySettings()" class="sr-only peer" checked>
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              <!-- Toggle: Show CGPA -->
+              <div class="p-3.5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-white block">Display CGPA to Peers</span>
+                  <span class="text-[11px] text-zinc-500">If OFF, shows '🔒 Private' on your public card</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="priv-show-cgpa" onchange="updatePrivacySettings()" class="sr-only peer" checked>
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              <!-- Toggle: Show Class Details -->
+              <div class="p-3.5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-white block">Display Class Section & Practical Group</span>
+                  <span class="text-[11px] text-zinc-500">Help peers in your section and lab batches identify you</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="priv-show-class" onchange="updatePrivacySettings()" class="sr-only peer" checked>
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <!-- Toggle: Show Socials -->
+              <div class="p-3.5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-white block">Display Social & Coding Profiles</span>
+                  <span class="text-[11px] text-zinc-500">GitHub, LinkedIn, and Portfolio links</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="priv-show-socials" onchange="updatePrivacySettings()" class="sr-only peer" checked>
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              <!-- Toggle: Show Experience -->
+              <div class="p-3.5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-white block">Display Experience & Internships</span>
+                  <span class="text-[11px] text-zinc-500">Work experience and verified technical roles</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="priv-show-exp" onchange="updatePrivacySettings()" class="sr-only peer" checked>
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                </label>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Academic & Class Details Editor Form -->
+          <form onsubmit="saveProfileDetails(event)" class="mt-8 pt-6 border-t border-white/10 space-y-4">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="edit-3" class="w-4 h-4 text-blue-400"></i>
+              Edit Profile Information
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label class="block text-zinc-400 mb-1">Class Section</label>
+                <input type="text" id="edit-class-section" placeholder="e.g. CSE-2" class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Practical Lab Group</label>
+                <input type="text" id="edit-practical-group" placeholder="e.g. Group 2 (P2)" class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <div class="text-xs">
+              <label class="block text-zinc-400 mb-1">Bio / Headline</label>
+              <textarea id="edit-bio" rows="2" placeholder="Tell classmates about your skills, interests, and projects..." class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="block text-zinc-400 mb-1">GitHub URL</label>
+                <input type="url" id="edit-github" placeholder="https://github.com/username" class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">LinkedIn URL</label>
+                <input type="url" id="edit-linkedin" placeholder="https://linkedin.com/in/username" class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Portfolio / Website</label>
+                <input type="url" id="edit-portfolio" placeholder="https://yourdomain.com" class="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] flex items-center gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Save Profile Information</span>
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- SUB-VIEW 3: PROOF VERIFICATION & BADGE ISSUANCE -->
+      <!-- ===================================================================== -->
+      <div id="subview-verify" class="hidden space-y-6">
+        
+        <!-- Verification Overview Card -->
+        <div class="p-6 rounded-2xl bg-zinc-900/90 border border-white/10 space-y-6">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold mb-2">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              Cryptographic & Document-Backed Audit Engine
+            </div>
+            <h2 class="text-xl font-bold text-white">Earn Official Verified Badges</h2>
+            <p class="text-xs text-zinc-400 mt-1 max-w-2xl">
+              Prevent fraudulent claims. Upload official university documents, ID cards, or experience letters to unlock verified badges next to your name and academic credentials.
+            </p>
+          </div>
+
+          <!-- Current Badges Display -->
+          <div class="space-y-3 pt-2">
+            <span class="text-xs text-zinc-400 font-mono">YOUR CURRENT VERIFICATION STATUS</span>
+            <div id="my-verifications-list" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Proof Upload Form -->
+          <form onsubmit="submitVerificationProof(event)" class="mt-6 pt-6 border-t border-white/10 space-y-4">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="upload-cloud" class="w-4 h-4 text-emerald-400"></i>
+              Submit Proof for Field Verification
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label class="block text-zinc-400 mb-1">Select Field to Verify</label>
+                <select id="verify-field" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+                  <option value="cgpa">Academic CGPA & ExamWeb Marksheet</option>
+                  <option value="class_group">Class Section & Practical Lab Group</option>
+                  <option value="experience">Technical Experience / Internship</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-zinc-400 mb-1">Claim / Value to Verify</label>
+                <input type="text" id="verify-claim" placeholder="e.g. 9.16 CGPA or CSE-2 / Group 2" required class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <div class="text-xs">
+              <label class="block text-zinc-400 mb-1">Upload Supporting Document (Marksheet PDF, ID Card, Offer Letter)</label>
+              <div class="border-2 border-dashed border-white/10 rounded-2xl p-6 text-center hover:border-indigo-500/50 transition-all bg-zinc-950/50">
+                <i data-lucide="file-up" class="w-8 h-8 text-zinc-500 mx-auto mb-2"></i>
+                <span class="block text-xs font-semibold text-zinc-300">Click to select PDF or image file</span>
+                <span class="block text-[10px] text-zinc-500 mt-1 font-mono">Accepts PDF, PNG, JPG up to 10MB</span>
+                <input type="file" id="verify-file" accept=".pdf,.png,.jpg,.jpeg" class="hidden" onchange="handleProofFileSelected(event)">
+                <button type="button" onclick="document.getElementById('verify-file').click()" class="mt-3 px-4 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium">Browse Files</button>
+                <p id="verify-file-name" class="mt-2 text-xs text-emerald-400 font-mono hidden"></p>
+              </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center gap-2">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span>Submit & Verify Badge</span>
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: ATLAS AUTOMATION SOCIETY HUB -->
+    <!-- ========================================================================= -->
+    <section id="tab-atlas" class="tab-pane hidden space-y-6">
+      
+      <div class="p-8 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+        <div class="max-w-3xl space-y-4">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
+            <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+            ATLAS Automation Society
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            Automated Technologies & Logical Applications Society
+          </h1>
+          <p class="text-zinc-300 text-base leading-relaxed">
+            The premier elite student engineering and systems automation chapter at Maharaja Agrasen Institute of Technology (MAIT). Dedicated to eliminating academic friction through open-source software, agentic workflows, and high-throughput university automation.
+          </p>
+        </div>
+
+        <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="p-5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-2">
+            <span class="text-xs font-mono text-blue-400 font-bold">PILLAR I</span>
+            <h3 class="text-base font-bold text-white">ARCHITECT</h3>
+            <p class="text-xs text-zinc-400">Empirical, zero-bloat system engineering. Transforming legacy academic workflows into high-speed APIs.</p>
+          </div>
+          <div class="p-5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-2">
+            <span class="text-xs font-mono text-cyan-400 font-bold">PILLAR II</span>
+            <h3 class="text-base font-bold text-white">AUTOMATE</h3>
+            <p class="text-xs text-zinc-400">Autonomous crawlers, instant webhook dispatch, and zero-latency notification broadcast infrastructure.</p>
+          </div>
+          <div class="p-5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-2">
+            <span class="text-xs font-mono text-emerald-400 font-bold">PILLAR III</span>
+            <h3 class="text-base font-bold text-white">ACCREDIT</h3>
+            <p class="text-xs text-zinc-400">Supporting NBA Tier-II Program Outcomes and NAAC Criteria through verifiable institutional open-source contributions.</p>
+          </div>
+          <div class="p-5 rounded-xl bg-zinc-900/60 border border-white/5 space-y-2">
+            <span class="text-xs font-mono text-amber-400 font-bold">PILLAR IV</span>
+            <h3 class="text-base font-bold text-white">ACCELERATE</h3>
+            <p class="text-xs text-zinc-400">Elite student incubator tracks: Winter of Code (AWoC), Smart India Hackathon war rooms, and top-tier engineering placements.</p>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-white/5 flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
+          <div>
+            <span class="text-zinc-400 font-medium">Founding Leadership:</span> President: Garv Goyal | CTO: Tanmay Jain
+          </div>
+          <div class="font-mono">
+            🏛️ MAIT Rohini, Sector 22, PSP Area, Delhi 110086
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 6: FACULTY ADMIN ROSTER & CONFIDENTIAL STUDENT DOSSIERS -->
+    <!-- ========================================================================= -->
+    <section id="tab-admin" class="tab-pane hidden space-y-6">
+      
+      <!-- Top Title Card & Summary -->
+      <div class="p-6 sm:p-8 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div class="space-y-2 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              <span>Faculty & Admin Academic Registry</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              Student Academic Dossiers & Profiles
+            </h1>
+            <p class="text-xs sm:text-sm text-zinc-400">
+              Verified records extracted directly from official GGSIPU ExamWeb & verified syllabus schemes. Displays official student photos, internal/external marks, semester-wise credit compliance, and private remediation alerts.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="loadAdminRoster()" class="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Refresh Registry</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-white/5">
+          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Profiles Stored</span>
+            <span id="admin-kpi-total" class="text-xl font-bold font-mono text-white">0</span>
+          </div>
+          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Average CGPA</span>
+            <span id="admin-kpi-avg-cgpa" class="text-xl font-bold font-mono text-blue-400">0.00</span>
+          </div>
+          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Good Standing</span>
+            <span id="admin-kpi-clean" class="text-xl font-bold font-mono text-emerald-400">0</span>
+          </div>
+          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Backlog Alerts</span>
+            <span id="admin-kpi-backlogs" class="text-xl font-bold font-mono text-amber-400">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="p-4 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="relative flex-1 w-full">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+          <input type="text" id="admin-search-input" oninput="filterAdminRoster()" placeholder="Search by Student Name or 11-Digit Roll Number..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <select id="admin-filter-status" onchange="filterAdminRoster()" class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500">
+            <option value="all">All Academic Standings</option>
+            <option value="clean">Good Standing (0 Backlogs)</option>
+            <option value="backlog">Has Active Backlogs</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Student Dossiers Grid -->
+      <div id="admin-students-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="admin-empty-state" class="hidden p-12 text-center rounded-2xl glass-card border border-white/5 space-y-2">
+        <i data-lucide="user-x" class="w-8 h-8 text-zinc-500 mx-auto"></i>
+        <h3 class="text-sm font-bold text-white">No Student Records Found</h3>
+        <p class="text-xs text-zinc-500">Try adjusting your search query or sync new students via ExamWeb.</p>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: COLLEGE & PROFILE SWITCHER -->
+  <!-- ========================================================================= -->
+  <div id="profile-modal" class="modal-backdrop" onclick="closeProfileModalOnBackdrop(event)">
+    <div class="modal-content max-w-lg p-6 space-y-5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <i data-lucide="building-2" class="w-5 h-5 text-blue-400"></i>
+          <h2 class="text-base font-bold text-white">Select Your College & Profile</h2>
+        </div>
+        <button onclick="closeProfileModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-zinc-400 font-medium mb-1.5">Affiliated College / Institute</label>
+          <select id="modal-select-college" class="w-full p-2.5 rounded-xl bg-zinc-900 border border-white/10 text-white focus:outline-none focus:border-blue-500">
+            <option value="MAIT">Maharaja Agrasen Institute of Technology (MAIT)</option>
+            <option value="USICT">University School of Information, Comm. & Tech (USICT)</option>
+            <option value="MSIT">Maharaja Surajmal Institute of Technology (MSIT)</option>
+            <option value="BVCOE">Bharati Vidyapeeth's College of Engineering (BVCOE)</option>
+            <option value="BPIT">Bhagwan Parshuram Institute of Technology (BPIT)</option>
+            <option value="DTC">Delhi Technical Campus (DTC)</option>
+            <option value="VIPS">Vivekananda Institute of Professional Studies (VIPS-TC)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-400 font-medium mb-1.5">Branch / Engineering Stream</label>
+            <select id="modal-select-branch" class="w-full p-2.5 rounded-xl bg-zinc-900 border border-white/10 text-white focus:outline-none focus:border-blue-500">
+              <option value="CSE">Computer Science & Engg (CSE)</option>
+              <option value="IT">Information Technology (IT)</option>
+              <option value="AI-DS">AI & Data Science (AI-DS)</option>
+              <option value="AI-ML">AI & Machine Learning (AI-ML)</option>
+              <option value="ECE">Electronics & Comm. (ECE)</option>
+              <option value="CST">Computer Science & Tech (CST)</option>
+              <option value="MAE">Mechanical & Automation (MAE)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-zinc-400 font-medium mb-1.5">Current Semester</label>
+            <select id="modal-select-sem" class="w-full p-2.5 rounded-xl bg-zinc-900 border border-white/10 text-white focus:outline-none focus:border-blue-500">
+              <option value="3" selected>Semester 3 (2nd Year)</option>
+              <option value="1">Semester 1 (1st Year)</option>
+              <option value="2">Semester 2 (1st Year)</option>
+              <option value="4">Semester 4 (2nd Year)</option>
+              <option value="5">Semester 5 (3rd Year)</option>
+              <option value="6">Semester 6 (3rd Year)</option>
+              <option value="7">Semester 7 (4th Year)</option>
+              <option value="8">Semester 8 (4th Year)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-white/5 flex justify-end gap-2">
+          <button onclick="closeProfileModal()" class="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white transition-all">Cancel</button>
+          <button onclick="saveProfile()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all">Save & Update Feed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: IN-BROWSER PDF PREVIEWER -->
+  <!-- ========================================================================= -->
+  <div id="pdf-modal" class="modal-backdrop" onclick="closePdfModalOnBackdrop(event)">
+    <div class="modal-content max-w-5xl h-[88vh] flex flex-col p-0 overflow-hidden" onclick="event.stopPropagation()">
+      <div class="p-3.5 bg-zinc-900/90 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2 overflow-hidden pr-4">
+          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+          <span id="pdf-modal-title" class="text-xs font-semibold text-white truncate">Paper Preview</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a id="pdf-download-btn" href="#" download class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1.5 transition-all">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download</span>
+          </a>
+          <button onclick="closePdfModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 bg-zinc-950 w-full h-full relative">
+        <iframe id="pdf-iframe" class="w-full h-full border-none" src="about:blank"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: STRUCTURED NOTICE VIEW & AI SUMMARY -->
+  <!-- ========================================================================= -->
+  <div id="notice-modal" class="modal-backdrop" onclick="closeNoticeModalOnBackdrop(event)">
+    <div class="modal-content max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="modal-notice-badge" class="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">NOTICE</span>
+          <span id="modal-notice-source" class="text-xs text-zinc-400 font-mono">GGSIPU</span>
+          <span id="modal-notice-date" class="text-xs text-zinc-500 font-mono">29-09-2026</span>
+        </div>
+        <button onclick="closeNoticeModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Title -->
+        <h3 id="modal-notice-title" class="text-base sm:text-lg font-bold text-white leading-snug">Notice Title</h3>
+        
+        <!-- Executive Summary Card -->
+        <div class="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-zinc-900 to-indigo-950/30 border border-blue-500/20 space-y-2">
+          <div class="flex items-center gap-2 text-xs font-semibold text-blue-400 uppercase tracking-wider font-mono">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>Executive Summary</span>
+          </div>
+          <p id="modal-notice-summary" class="text-xs text-zinc-300 leading-relaxed">
+            Summary will load here...
+          </p>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-zinc-900/90 border border-white/5 space-y-1">
+            <span class="text-[11px] text-zinc-500 font-mono flex items-center gap-1.5">
+              <i data-lucide="users" class="w-3 h-3 text-blue-400"></i>
+              Target Audience
+            </span>
+            <p id="modal-notice-target" class="font-medium text-white">B.Tech (All Branches)</p>
+          </div>
+          <div class="p-3 rounded-xl bg-zinc-900/90 border border-white/5 space-y-1">
+            <span class="text-[11px] text-zinc-500 font-mono flex items-center gap-1.5">
+              <i data-lucide="building-2" class="w-3 h-3 text-indigo-400"></i>
+              Issuing Wing
+            </span>
+            <p id="modal-notice-wing" class="font-medium text-white">GGSIPU Examination Division</p>
+          </div>
+        </div>
+
+        <!-- Action Required Box -->
+        <div class="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs space-y-1">
+          <span class="text-[11px] font-semibold text-amber-400 flex items-center gap-1.5">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+            Action Required by Candidates
+          </span>
+          <p id="modal-notice-action" class="text-zinc-300 leading-relaxed">Action steps will appear here...</p>
+        </div>
+
+        <!-- Important Dates Chips -->
+        <div id="modal-notice-dates-box" class="space-y-1.5">
+          <span class="text-[11px] text-zinc-500 font-mono block">Important Dates & Schedules</span>
+          <div id="modal-notice-dates" class="flex flex-wrap gap-2 text-[11px]">
+            <!-- Dynamic date badges -->
+          </div>
+        </div>
+
+        <!-- In-app PDF preview container (collapsible) -->
+        <div id="modal-pdf-container" class="hidden rounded-xl overflow-hidden border border-white/10 bg-black h-80">
+          <iframe id="modal-pdf-frame" class="w-full h-full border-none" src="about:blank"></iframe>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <button id="modal-copy-alert-btn" onclick="copyModalAlert()" class="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copy Alert</span>
+          </button>
+          
+          <button id="modal-toggle-preview-btn" onclick="toggleNoticePdfPreview()" class="px-4 py-2.5 rounded-xl bg-zinc-900 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white font-medium flex items-center gap-2 transition-all">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span id="modal-toggle-preview-text">Preview Document</span>
+          </button>
+
+          <a id="modal-notice-link" href="#" target="_blank" class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+            <span>Open Original Notice / PDF</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: GPA / SGPA FORECASTER (RELOCATED ON-DEMAND MODAL) -->
+  <!-- ========================================================================= -->
+  <div id="gpa-modal" class="modal-backdrop" onclick="closeGpaModalOnBackdrop(event)">
+    <div class="modal-content max-w-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center">
+            <i data-lucide="calculator" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white">Semester SGPA Simulator & Forecaster</h2>
+            <p class="text-[11px] text-zinc-400 font-mono">Official GGSIPU Ordinance Evaluation Formula</p>
+          </div>
+        </div>
+        <button onclick="closeGpaModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Subject Inputs -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono pb-2 border-b border-white/5">
+            <span>Subject & Code</span>
+            <div class="flex items-center gap-8">
+              <span>Credits</span>
+              <span class="w-24 text-center">Expected Grade</span>
+            </div>
+          </div>
+          <div id="calculator-rows" class="space-y-2.5">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Live Forecast Card -->
+        <div class="p-6 rounded-2xl bg-zinc-900/90 border border-white/10 flex flex-col items-center justify-center text-center space-y-4">
+          <span class="text-xs uppercase font-mono tracking-wider text-zinc-400">Predicted SGPA</span>
+          <div class="relative">
+            <span id="forecast-sgpa" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-blue-500 font-mono">
+              9.15
+            </span>
+            <span class="text-xs text-zinc-500 block font-mono">out of 10.00</span>
+          </div>
+          
+          <div class="w-full pt-4 border-t border-white/5 space-y-2 text-xs">
+            <div class="flex justify-between text-zinc-400">
+              <span>Total Semester Credits:</span>
+              <span id="forecast-credits" class="font-bold text-white font-mono">26</span>
+            </div>
+            <div class="flex justify-between text-zinc-400">
+              <span>Predicted Percentage:</span>
+              <span id="forecast-percent" class="font-bold text-white font-mono">91.5%</span>
+            </div>
+            <div class="flex justify-between text-zinc-400">
+              <span>Division / Honor:</span>
+              <span id="forecast-division" class="font-bold text-emerald-400">First Class with Distinction</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: GOOGLE ACCOUNT LOGIN & SWITCHER -->
+  <!-- ========================================================================= -->
+  <div id="google-auth-modal" class="modal-backdrop" onclick="closeGoogleAuthModalOnBackdrop(event)">
+    <div class="modal-content max-w-md p-6 space-y-5" onclick="event.stopPropagation()">
+      <div class="text-center space-y-2 pb-3 border-b border-white/10">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-white p-2.5 shadow-md flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-white">Sign in with Google</h3>
+        <p class="text-xs text-zinc-400">Choose your verified student account to access CampusIQ</p>
+      </div>
+
+      <!-- Account Selection List -->
+      <div id="google-accounts-list" class="space-y-2 text-xs">
+        <!-- Populated dynamically with students -->
+      </div>
+
+      <div class="pt-2 text-center border-t border-white/5">
+        <button onclick="closeGoogleAuthModal()" class="text-xs text-zinc-400 hover:text-white font-medium">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: PEER PUBLIC PROFILE DOSSIER -->
+  <!-- ========================================================================= -->
+  <div id="peer-modal" class="modal-backdrop" onclick="closePeerModalOnBackdrop(event)">
+    <div class="modal-content max-w-xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold">STUDENT DOSSIER</span>
+          <span id="peer-modal-batch" class="text-xs text-zinc-500 font-mono">Batch 2025</span>
+        </div>
+        <button onclick="closePeerModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Header -->
+        <div class="flex items-center gap-4">
+          <img id="peer-modal-avatar" src="" class="w-16 h-16 rounded-2xl border-2 border-indigo-500/40 bg-zinc-800 object-cover shadow-lg" />
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="peer-modal-name" class="text-lg font-bold text-white leading-tight">Student Name</h2>
+              <span id="peer-modal-verified-chip" class="hidden px-2 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">VERIFIED</span>
+            </div>
+            <p id="peer-modal-roll" class="text-xs text-zinc-400 font-mono mt-0.5">08414802725 • MAIT</p>
+            <p id="peer-modal-program" class="text-xs text-zinc-400">B.Tech Computer Science</p>
+          </div>
+        </div>
+
+        <!-- Class & Group Chips -->
+        <div id="peer-modal-class-box" class="flex flex-wrap gap-2 text-xs">
+          <!-- Section & practical group chips -->
+        </div>
+
+        <!-- Bio -->
+        <div id="peer-modal-bio-box" class="p-3.5 rounded-xl bg-zinc-900 border border-white/5 text-xs text-zinc-300">
+          <p id="peer-modal-bio">Student bio...</p>
+        </div>
+
+        <!-- Academic Performance (Respects Privacy) -->
+        <div class="p-4 rounded-xl bg-zinc-950 border border-white/10 space-y-2">
+          <span class="text-[11px] text-zinc-500 font-mono flex items-center justify-between">
+            <span>ACADEMIC EVALUATION STATUS</span>
+            <span id="peer-modal-cgpa-audit" class="text-emerald-400">ExamWeb Audited</span>
+          </span>
+          <div id="peer-modal-cgpa-display">
+            <!-- Either CGPA value with badge or '🔒 Hidden by student' -->
+          </div>
+        </div>
+
+        <!-- Verifications Badges Grid -->
+        <div class="space-y-2">
+          <span class="text-[11px] text-zinc-500 font-mono">VERIFIED BADGES & PROOFS</span>
+          <div id="peer-modal-verifications" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <!-- Badges -->
+          </div>
+        </div>
+
+        <!-- Experiences List -->
+        <div id="peer-modal-exp-box" class="space-y-2">
+          <span class="text-[11px] text-zinc-500 font-mono">TECHNICAL EXPERIENCE & ROLES</span>
+          <div id="peer-modal-experiences" class="space-y-2 text-xs">
+            <!-- Experiences -->
+          </div>
+        </div>
+
+        <!-- Social Links -->
+        <div id="peer-modal-socials-box" class="pt-2 flex items-center gap-3">
+          <!-- Social icons -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Feedback -->
+  <div id="toast">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-msg">Action completed successfully</span>
+  </div>
+
+  <!-- Client Application Script -->
+  <script src="/app.js"></script>
+</body>
+</html>
