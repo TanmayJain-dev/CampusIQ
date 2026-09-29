@@ -1,0 +1,24 @@
+{
+  "tanmay.jain@ipu.ac.in": {
+    "id": "usr_08414802725",
+    "email": "tanmay.jain@ipu.ac.in",
+    "name": "Tanmay Jain",
+    "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
+    "roll_number": "08414802725",
+    "password_hash": "4337243ccb90c128e2de08f06fbadfc0252d5052c959b2f4111248f26106c9b5",
+    "salt": "15b53f569b4f154e3de304af8ec7aa5c",
+    "auth_provider": "local",
+    "created_at": 1790682943.0465043
+  },
+  "pinkijain47@gmail.com": {
+    "id": "usr_08414802725_alt",
+    "email": "pinkijain47@gmail.com",
+    "name": "Tanmay Jain",
+    "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
+    "roll_number": "08414802725",
+    "password_hash": "4337243ccb90c128e2de08f06fbadfc0252d5052c959b2f4111248f26106c9b5",
+    "salt": "15b53f569b4f154e3de304af8ec7aa5c",
+    "auth_provider": "local",
+    "created_at": 1790682943.0465136
+  }
+}

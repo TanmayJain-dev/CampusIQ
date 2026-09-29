@@ -17,11 +17,13 @@ import json
 import ssl
 import time
 import secrets
+import hashlib
+import hmac
 import mimetypes
 import urllib.request
 import urllib.parse
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 # Ensure project root is in sys.path
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -56,9 +58,93 @@ ACADEMIC_DIR = os.environ.get(
 )
 SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
 
-# Session Store Configuration
+# Session & User Store Configuration
 SESSIONS_FILE = os.path.join(PROJECT_DIR, "data", "sessions.json")
+USERS_FILE = os.path.join(PROJECT_DIR, "data", "users.json")
+AUTH_CONFIG_FILE = os.path.join(PROJECT_DIR, "data", "auth_config.json")
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
+_USERS: Dict[str, Dict[str, Any]] = {}
+
+def load_auth_config() -> Dict[str, Any]:
+    config = {
+        "google_client_id": os.environ.get("GOOGLE_CLIENT_ID", "")
+    }
+    if os.path.exists(AUTH_CONFIG_FILE):
+        try:
+            with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                if saved.get("google_client_id"):
+                    config["google_client_id"] = saved["google_client_id"]
+        except Exception:
+            pass
+    return config
+
+def save_auth_config(cfg: Dict[str, Any]):
+    try:
+        os.makedirs(os.path.dirname(AUTH_CONFIG_FILE), exist_ok=True)
+        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        print(f"[!] Error saving auth config: {e}", file=sys.stderr)
+
+def hash_password(password: str, salt_hex: Optional[str] = None) -> Tuple[str, str]:
+    if salt_hex:
+        salt = bytes.fromhex(salt_hex)
+    else:
+        salt = secrets.token_bytes(16)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+    return pwd_hash.hex(), salt.hex()
+
+def verify_password(password: str, salt_hex: str, expected_hash: str) -> bool:
+    calc_hash, _ = hash_password(password, salt_hex)
+    return hmac.compare_digest(calc_hash, expected_hash)
+
+def load_users() -> Dict[str, Any]:
+    global _USERS
+    if not os.path.exists(USERS_FILE):
+        _USERS = {}
+        # Seed Tanmay's primary account
+        pwd_hash, salt = hash_password("Tanmay@2008")
+        _USERS["tanmay.jain@ipu.ac.in"] = {
+            "id": "usr_08414802725",
+            "email": "tanmay.jain@ipu.ac.in",
+            "name": "Tanmay Jain",
+            "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
+            "roll_number": "08414802725",
+            "password_hash": pwd_hash,
+            "salt": salt,
+            "auth_provider": "local",
+            "created_at": time.time()
+        }
+        _USERS["pinkijain47@gmail.com"] = {
+            "id": "usr_08414802725_alt",
+            "email": "pinkijain47@gmail.com",
+            "name": "Tanmay Jain",
+            "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
+            "roll_number": "08414802725",
+            "password_hash": pwd_hash,
+            "salt": salt,
+            "auth_provider": "local",
+            "created_at": time.time()
+        }
+        save_users(_USERS)
+        return _USERS
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            _USERS = json.load(f)
+    except Exception:
+        _USERS = {}
+    return _USERS
+
+def save_users(users: Dict[str, Any]):
+    global _USERS
+    _USERS = users
+    try:
+        os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2)
+    except Exception as e:
+        print(f"[!] Error saving users: {e}", file=sys.stderr)
 
 def load_sessions() -> Dict[str, Dict[str, Any]]:
     global _SESSIONS
@@ -78,8 +164,9 @@ def save_sessions():
     except Exception as e:
         print(f"[!] Error saving sessions: {e}", file=sys.stderr)
 
-# Initialize sessions from disk
+# Initialize from disk
 load_sessions()
+load_users()
 
 # In-memory caches
 _NOTICES_CACHE = {
@@ -370,7 +457,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         self.send_cors_headers = lambda: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
         }
 
         # API Routes
@@ -384,6 +471,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_resource_view(params)
         elif path == "/api/auth/me" or path == "/api/auth/current":
             self.handle_api_auth_me()
+        elif path == "/api/auth/config":
+            self.handle_api_auth_config()
         elif path == "/api/students/directory":
             self.handle_api_students_directory(params)
         elif path == "/api/results":
@@ -426,7 +515,15 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
 
         if path == "/api/examweb/login":
             self.handle_api_examweb_login()
-        elif path in ("/api/auth/google/signin", "/api/auth/google", "/api/auth/signin"):
+        elif path == "/api/auth/config":
+            self.handle_api_auth_config_update()
+        elif path in ("/api/auth/google/verify", "/api/auth/google"):
+            self.handle_api_auth_google_verify()
+        elif path == "/api/auth/login":
+            self.handle_api_auth_login()
+        elif path == "/api/auth/register":
+            self.handle_api_auth_register()
+        elif path in ("/api/auth/google/signin", "/api/auth/signin"):
             self.handle_api_auth_signin()
         elif path == "/api/auth/signout":
             self.handle_api_auth_signout()
@@ -778,14 +875,273 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
     def handle_api_auth_current(self):
         self.handle_api_auth_me()
 
-    # 14. Sign in with Google Account
+    # 14a. Auth Configuration (Google Client ID)
+    def handle_api_auth_config(self):
+        cfg = load_auth_config()
+        self._send_json({
+            "status": "success",
+            "google_client_id": cfg.get("google_client_id", ""),
+            "google_auth_enabled": bool(cfg.get("google_client_id"))
+        })
+
+    def handle_api_auth_config_update(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            client_id = data.get("google_client_id", "").strip()
+            cfg = load_auth_config()
+            cfg["google_client_id"] = client_id
+            save_auth_config(cfg)
+            self._send_json({
+                "status": "success",
+                "message": "Auth configuration saved.",
+                "google_client_id": client_id
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # 14b. Official Google Identity Services Token Verification
+    def handle_api_auth_google_verify(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            credential = data.get("credential", "").strip()
+
+            if not credential:
+                self._send_json({"status": "error", "message": "Missing Google credential token."}, 400)
+                return
+
+            # Verify with Google's public tokeninfo endpoint
+            verify_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(credential)}"
+            req = urllib.request.Request(verify_url, headers={"User-Agent": "CampusIQ-Server/2.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                token_info = json.loads(resp.read().decode("utf-8"))
+
+            email = token_info.get("email", "").strip().lower()
+            email_verified = token_info.get("email_verified") in (True, "true", "True", 1)
+            name = token_info.get("name", "").strip()
+            avatar = token_info.get("picture", "").strip()
+            sub = token_info.get("sub", "").strip()
+
+            if not email or not email_verified:
+                self._send_json({"status": "error", "message": "Google verification failed: email unverified."}, 401)
+                return
+
+            if not name:
+                name = email.split("@")[0].title()
+
+            db = load_all_students_db()
+            student = None
+            roll = None
+            for r, s in db.items():
+                if s.get("email", "").lower() == email or (s.get("profile", {}).get("google_email", "").lower() == email):
+                    roll = r
+                    student = s
+                    break
+
+            users = load_users()
+            user_record = users.get(email)
+            if not user_record:
+                user_record = {
+                    "id": f"usr_google_{sub}",
+                    "email": email,
+                    "name": name,
+                    "avatar_url": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}",
+                    "roll_number": roll,
+                    "google_id": sub,
+                    "auth_provider": "google",
+                    "created_at": time.time()
+                }
+                users[email] = user_record
+                save_users(users)
+            else:
+                user_record["google_id"] = sub
+                user_record["auth_provider"] = "google"
+                if avatar:
+                    user_record["avatar_url"] = avatar
+                if roll and not user_record.get("roll_number"):
+                    user_record["roll_number"] = roll
+                users[email] = user_record
+                save_users(users)
+                roll = user_record.get("roll_number", roll)
+                if roll and roll in db:
+                    student = db[roll]
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": name,
+                "avatar_url": user_record.get("avatar_url", avatar),
+                "roll_number": roll,
+                "google_id": sub,
+                "auth_provider": "google",
+                "created_at": time.time()
+            }
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Successfully signed in with Google as {name}!",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": f"Google verification error: {str(e)}"}, 401)
+
+    # 14c. Local Student Email & Password Login
+    def handle_api_auth_login(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+
+            email = data.get("email", "").strip().lower()
+            password = data.get("password", "").strip()
+
+            if not email or not password:
+                self._send_json({"status": "error", "message": "Email and password are both required."}, 400)
+                return
+
+            users = load_users()
+            user_record = users.get(email)
+            if not user_record:
+                self._send_json({
+                    "status": "error",
+                    "message": "No account found with this email. Please register or sign in with Google."
+                }, 404)
+                return
+
+            salt = user_record.get("salt")
+            pwd_hash = user_record.get("password_hash")
+            if not salt or not pwd_hash or not verify_password(password, salt, pwd_hash):
+                self._send_json({
+                    "status": "error",
+                    "message": "Incorrect password. Please verify your credentials."
+                }, 401)
+                return
+
+            roll = user_record.get("roll_number")
+            db = load_all_students_db()
+            student = db.get(roll) if roll else None
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": user_record.get("name", "Student"),
+                "avatar_url": user_record.get("avatar_url"),
+                "roll_number": roll,
+                "auth_provider": "local",
+                "created_at": time.time()
+            }
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Welcome back, {user_session['name']}!",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # 14d. Register New Student Account (with Password)
+    def handle_api_auth_register(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+
+            email = data.get("email", "").strip().lower()
+            password = data.get("password", "").strip()
+            name = data.get("name", "").strip()
+            roll = data.get("roll_number", "").strip()
+
+            if not email or "@" not in email:
+                self._send_json({"status": "error", "message": "A valid email address is required."}, 400)
+                return
+            if not password or len(password) < 6:
+                self._send_json({"status": "error", "message": "Password must be at least 6 characters long."}, 400)
+                return
+            if not name:
+                name = email.split("@")[0].replace(".", " ").title()
+
+            users = load_users()
+            if email in users:
+                self._send_json({"status": "error", "message": "An account with this email already exists. Please sign in."}, 409)
+                return
+
+            pwd_hash, salt = hash_password(password)
+            avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}"
+
+            db = load_all_students_db()
+            student = None
+            if roll and roll in db:
+                student = db[roll]
+
+            user_record = {
+                "id": f"usr_{secrets.token_hex(8)}",
+                "email": email,
+                "name": name,
+                "avatar_url": avatar,
+                "roll_number": roll or None,
+                "password_hash": pwd_hash,
+                "salt": salt,
+                "auth_provider": "local",
+                "created_at": time.time()
+            }
+            users[email] = user_record
+            save_users(users)
+
+            token = secrets.token_hex(24)
+            user_session = {
+                "session_token": token,
+                "email": email,
+                "name": name,
+                "avatar_url": avatar,
+                "roll_number": roll or None,
+                "auth_provider": "local",
+                "created_at": time.time()
+            }
+            sessions = load_sessions()
+            sessions[token] = user_session
+            save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Account created! Welcome, {name}!",
+                "session_token": token,
+                "user": user_session,
+                "student": student
+            }, 201)
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # 14e. Direct / Legacy Sign In Endpoint (Backward compatibility)
     def handle_api_auth_signin(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
             body_bytes = self.rfile.read(length)
             data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
 
-            email = data.get("email", "").strip()
+            if "credential" in data:
+                self.handle_api_auth_google_verify()
+                return
+
+            if "password" in data:
+                self.handle_api_auth_login()
+                return
+
+            email = data.get("email", "").strip().lower()
             name = data.get("name", "").strip()
             avatar = data.get("avatar", "").strip()
             roll = data.get("roll_number", "").strip()
@@ -806,7 +1162,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 student = db.get(roll)
             else:
                 for r, s in db.items():
-                    if s.get("email", "").lower() == email.lower():
+                    if s.get("email", "").lower() == email:
                         roll = r
                         student = s
                         break

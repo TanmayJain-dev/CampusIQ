@@ -34,6 +34,9 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- Google Identity Services (Sign in with Google) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -1169,11 +1172,12 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODAL: GOOGLE ACCOUNT SIGN IN -->
+  <!-- MODAL: GOOGLE & STUDENT AUTHENTICATION -->
   <!-- ========================================================================= -->
   <div id="google-auth-modal" class="modal-backdrop" onclick="closeGoogleAuthModalOnBackdrop(event)">
-    <div class="modal-content max-w-md p-6 space-y-5" onclick="event.stopPropagation()">
-      <div class="text-center space-y-2 pb-3 border-b border-white/10">
+    <div class="modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="text-center space-y-1.5 pb-2 border-b border-white/10">
         <div class="w-12 h-12 mx-auto rounded-2xl bg-white p-2.5 shadow-md flex items-center justify-center">
           <svg class="w-full h-full" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -1182,53 +1186,110 @@
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
         </div>
-        <h3 class="text-base font-bold text-white">Sign in with Google</h3>
-        <p class="text-xs text-zinc-400">Secure access to your personal marks, dossier, and campus privacy settings</p>
+        <h3 class="text-base font-bold text-white tracking-tight">Student Authentication</h3>
+        <p class="text-xs text-zinc-400">Sign in with your Google Account or CampusIQ student credentials</p>
       </div>
 
-      <!-- Google Sign In Form -->
-      <form onsubmit="handleGoogleSignIn(event)" class="space-y-3.5 text-xs">
-        <div>
-          <label class="block text-zinc-300 font-medium mb-1">Google Email Address</label>
-          <div class="relative">
-            <i data-lucide="mail" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-            <input type="email" id="signin-email" required placeholder="e.g. tanmay.jain@ipu.ac.in or user@gmail.com" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
-          </div>
-        </div>
+      <!-- Primary Action: Continue with Google -->
+      <div class="space-y-2 pt-1">
+        <!-- Google Identity Services Official Slot (if Client ID initialized) -->
+        <div id="g-signin-container" class="w-full flex justify-center"></div>
 
-        <div>
+        <!-- Google Branded Button -->
+        <button type="button" id="btn-google-action" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2.5 shadow-[0_2px_12px_rgba(255,255,255,0.12)] transition-all">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span id="btn-google-action-text">Sign in with Google</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex items-center my-2">
+        <div class="flex-grow border-t border-white/10"></div>
+        <span class="flex-shrink mx-3 text-zinc-500 text-[10px] uppercase tracking-wider font-semibold">or student credentials</span>
+        <div class="flex-grow border-t border-white/10"></div>
+      </div>
+
+      <!-- Sign In vs Register Tabs -->
+      <div class="flex rounded-xl bg-zinc-950 p-1 border border-white/10 text-xs">
+        <button type="button" id="auth-tab-signin" onclick="switchAuthTab('signin')" class="flex-1 py-1.5 rounded-lg font-semibold text-white bg-zinc-800 shadow transition-all">Sign In</button>
+        <button type="button" id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all">Create Account</button>
+      </div>
+
+      <!-- Error Alert -->
+      <div id="auth-error-alert" class="hidden p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0 text-red-400"></i>
+        <span id="auth-error-msg">Invalid credentials.</span>
+      </div>
+
+      <!-- Credentials Form -->
+      <form onsubmit="handleAuthSubmit(event)" class="space-y-3 text-xs">
+        <!-- Full Name (Only for Registration) -->
+        <div id="auth-name-group" class="hidden">
           <label class="block text-zinc-300 font-medium mb-1">Full Name</label>
           <div class="relative">
             <i data-lucide="user" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-            <input type="text" id="signin-name" required placeholder="e.g. Tanmay Jain" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
+            <input type="text" id="signin-name" placeholder="e.g. Tanmay Jain" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
           </div>
         </div>
 
+        <!-- Email Address -->
         <div>
+          <label class="block text-zinc-300 font-medium mb-1">Student Email Address</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+            <input type="email" id="signin-email" required placeholder="e.g. tanmay.jain@ipu.ac.in" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
+          </div>
+        </div>
+
+        <!-- Password (REQUIRED) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-zinc-300 font-medium">Password</label>
+            <span id="auth-password-hint" class="text-[10px] text-zinc-500">Required</span>
+          </div>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+            <input type="password" id="signin-password" required placeholder="Enter your password" class="w-full pl-9 pr-10 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
+            <button type="button" onclick="togglePasswordVisibility('signin-password')" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 11-Digit Roll Number (Only for Registration) -->
+        <div id="auth-roll-group" class="hidden">
           <label class="block text-zinc-300 font-medium mb-1">11-Digit GGSIPU Roll Number <span class="text-zinc-500">(Optional)</span></label>
           <div class="relative">
             <i data-lucide="hash" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
             <input type="text" id="signin-roll" placeholder="e.g. 08414802725" maxlength="11" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-white/10 text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all">
           </div>
-          <span class="text-[10px] text-zinc-500 mt-1 block">Linking your roll number attaches your official ExamWeb marksheet automatically.</span>
+          <span class="text-[10px] text-zinc-500 mt-1 block">Links your ExamWeb marksheets and verified CGPA to your profile.</span>
         </div>
 
-        <!-- 1-Click Quick Fill Helper for Tanmay -->
-        <div class="pt-1">
+        <!-- 1-Click Quick Fill Helper for Tanmay (Fills Email & Password so user can test full verification) -->
+        <div class="pt-0.5">
           <button type="button" onclick="fillTanmayCredentials()" class="w-full py-1.5 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 text-[11px] font-mono flex items-center justify-center gap-1.5 transition-all">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-            <span>Quick Sign-In as Tanmay (08414802725)</span>
+            <span>Quick Fill Tanmay (tanmay.jain@ipu.ac.in • Tanmay@2008)</span>
           </button>
         </div>
 
-        <button type="submit" id="btn-submit-signin" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(59,130,246,0.3)] transition-all">
-          <span>Sign In & Continue</span>
+        <!-- Submit Button -->
+        <button type="submit" id="btn-submit-auth" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(59,130,246,0.3)] transition-all">
+          <span id="btn-submit-auth-text">Sign In with Password</span>
           <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
         </button>
       </form>
 
-      <div class="pt-2 text-center border-t border-white/5">
-        <button type="button" onclick="closeGoogleAuthModal()" class="text-xs text-zinc-400 hover:text-white font-medium">Cancel</button>
+      <!-- Advanced: Configure Google Client ID -->
+      <div class="pt-2 text-center border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-500">
+        <button type="button" onclick="promptConfigureGoogleClientId()" class="hover:text-zinc-300 underline underline-offset-2 transition-all">Google OAuth Setup</button>
+        <button type="button" onclick="closeGoogleAuthModal()" class="text-zinc-400 hover:text-white font-medium">Cancel</button>
       </div>
     </div>
   </div>

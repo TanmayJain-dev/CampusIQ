@@ -31,6 +31,8 @@ const state = {
   sessionToken: localStorage.getItem("campusiq_session_token") || null,
   currentUser: null,
   currentStudent: null,
+  googleClientId: "",
+  authMode: "signin",
   directoryStudents: [],
   selectedPeer: null,
   directoryFilter: "all",
@@ -74,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchResourcesTree();
   fetchResources();
   fetchCurrentUser();
+  loadAuthConfig();
   fetchDirectoryStudents();
   loadAdminRoster();
   fetchStats();
@@ -2343,36 +2346,68 @@ function closeGoogleAuthModalOnBackdrop(e) {
   if (e.target.id === "google-auth-modal") closeGoogleAuthModal();
 }
 
-function fillTanmayCredentials() {
-  const emailInput = document.getElementById("signin-email");
-  const nameInput = document.getElementById("signin-name");
-  const rollInput = document.getElementById("signin-roll");
-  if (emailInput) emailInput.value = "tanmay.jain@ipu.ac.in";
-  if (nameInput) nameInput.value = "Tanmay Jain";
-  if (rollInput) rollInput.value = "08414802725";
+// Load Auth Configuration (Google Client ID, etc.)
+async function loadAuthConfig() {
+  try {
+    const res = await fetch("/api/auth/config");
+    const data = await res.json();
+    if (data.status === "success" && data.google_client_id) {
+      state.googleClientId = data.google_client_id;
+      initGoogleIdentity();
+    }
+  } catch (e) {
+    console.error("Failed to load auth config:", e);
+  }
 }
 
-async function handleGoogleSignIn(e) {
-  e.preventDefault();
-  const email = document.getElementById("signin-email").value.trim();
-  const name = document.getElementById("signin-name").value.trim();
-  const roll = document.getElementById("signin-roll").value.trim();
-
-  const submitBtn = document.getElementById("btn-submit-signin");
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `<span>Signing In...</span>`;
+// Initialize Google Identity Services (GIS)
+function initGoogleIdentity() {
+  if (typeof google === "undefined" || !google.accounts || !google.accounts.id) {
+    return;
   }
+  if (!state.googleClientId) return;
 
   try {
-    const res = await fetch("/api/auth/google/signin", {
+    google.accounts.id.initialize({
+      client_id: state.googleClientId,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+
+    const container = document.getElementById("g-signin-container");
+    if (container) {
+      container.innerHTML = "";
+      google.accounts.id.renderButton(container, {
+        theme: "filled_black",
+        size: "large",
+        shape: "rectangular",
+        text: "signin_with",
+        logo_alignment: "left",
+        width: 320
+      });
+      const fallbackBtn = document.getElementById("btn-google-action");
+      if (fallbackBtn) fallbackBtn.classList.add("hidden");
+    }
+  } catch (err) {
+    console.warn("Google Identity Services initialization:", err);
+  }
+}
+
+// Handler called when Google Identity Services completes authentication
+async function handleGoogleCredentialResponse(response) {
+  if (!response || !response.credential) {
+    showToast("Google authentication did not return a valid credential.");
+    return;
+  }
+
+  showToast("🔐 Verifying Google identity...");
+
+  try {
+    const res = await fetch("/api/auth/google/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email,
-        name: name,
-        roll_number: roll || null
-      })
+      body: JSON.stringify({ credential: response.credential })
     });
 
     const data = await res.json();
@@ -2385,19 +2420,181 @@ async function handleGoogleSignIn(e) {
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
       closeGoogleAuthModal();
-      showToast(`🎉 Welcome, ${data.user.name}!`);
+      showToast(`🎉 Verified & Signed In as ${data.user.name}!`);
       fetchDirectoryStudents();
     } else {
-      showToast(data.message || "Failed to sign in.");
+      showToast(data.message || "Google sign-in verification failed.");
     }
   } catch (err) {
-    console.error("Sign in error:", err);
-    showToast("Sign in failed. Check network connection.");
+    console.error("Google sign in verification error:", err);
+    showToast("Google sign in failed. Please try again.");
+  }
+}
+
+// User clicked the "Sign in with Google" button
+function handleGoogleSignInClick() {
+  if (state.googleClientId && typeof google !== "undefined" && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt();
+    return;
+  }
+
+  const msg = "To enable 1-click Google OAuth popup, please enter your Google Cloud OAuth Client ID (or set GOOGLE_CLIENT_ID on Render). Would you like to enter it now?";
+  if (confirm(msg)) {
+    promptConfigureGoogleClientId();
+  } else {
+    switchAuthTab("signin");
+    fillTanmayCredentials();
+  }
+}
+
+// Prompt to configure Google OAuth Client ID
+async function promptConfigureGoogleClientId() {
+  const current = state.googleClientId || "";
+  const clientId = prompt(
+    "Enter your Google Cloud OAuth 2.0 Client ID:\n(e.g., 1234567890-abcdef.apps.googleusercontent.com)\n\nFrom Google Cloud Console -> APIs & Services -> Credentials",
+    current
+  );
+
+  if (clientId === null) return;
+  const trimmed = clientId.trim();
+
+  try {
+    const res = await fetch("/api/auth/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ google_client_id: trimmed })
+    });
+    const data = await res.json();
+    if (data.status === "success") {
+      state.googleClientId = trimmed;
+      showToast(trimmed ? "✅ Google Client ID saved!" : "Google Client ID cleared.");
+      initGoogleIdentity();
+    }
+  } catch (e) {
+    showToast("Failed to save auth configuration.");
+  }
+}
+
+// Switch between "Sign In" and "Create Account"
+function switchAuthTab(tab) {
+  state.authMode = tab;
+  const tabSignIn = document.getElementById("auth-tab-signin");
+  const tabRegister = document.getElementById("auth-tab-register");
+  const nameGroup = document.getElementById("auth-name-group");
+  const rollGroup = document.getElementById("auth-roll-group");
+  const submitText = document.getElementById("btn-submit-auth-text");
+  const errAlert = document.getElementById("auth-error-alert");
+
+  if (errAlert) errAlert.classList.add("hidden");
+
+  if (tab === "signin") {
+    if (tabSignIn) {
+      tabSignIn.className = "flex-1 py-1.5 rounded-lg font-semibold text-white bg-zinc-800 shadow transition-all";
+    }
+    if (tabRegister) {
+      tabRegister.className = "flex-1 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all";
+    }
+    if (nameGroup) nameGroup.classList.add("hidden");
+    if (rollGroup) rollGroup.classList.add("hidden");
+    if (submitText) submitText.innerText = "Sign In with Password";
+  } else {
+    if (tabSignIn) {
+      tabSignIn.className = "flex-1 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all";
+    }
+    if (tabRegister) {
+      tabRegister.className = "flex-1 py-1.5 rounded-lg font-semibold text-white bg-zinc-800 shadow transition-all";
+    }
+    if (nameGroup) nameGroup.classList.remove("hidden");
+    if (rollGroup) rollGroup.classList.remove("hidden");
+    if (submitText) submitText.innerText = "Create Account & Sign In";
+  }
+  lucide.createIcons();
+}
+
+// 1-Click Quick Fill Helper for Tanmay
+function fillTanmayCredentials() {
+  const emailInput = document.getElementById("signin-email");
+  const pwdInput = document.getElementById("signin-password");
+  const nameInput = document.getElementById("signin-name");
+  const rollInput = document.getElementById("signin-roll");
+  const errAlert = document.getElementById("auth-error-alert");
+
+  if (errAlert) errAlert.classList.add("hidden");
+  if (emailInput) emailInput.value = "tanmay.jain@ipu.ac.in";
+  if (pwdInput) pwdInput.value = "Tanmay@2008";
+  if (nameInput) nameInput.value = "Tanmay Jain";
+  if (rollInput) rollInput.value = "08414802725";
+
+  showToast("🔑 Populated credentials. Click Sign In to verify.");
+}
+
+// Handle Form Submission: Login with Password OR Create Account
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const errAlert = document.getElementById("auth-error-alert");
+  const errMsg = document.getElementById("auth-error-msg");
+  if (errAlert) errAlert.classList.add("hidden");
+
+  const email = (document.getElementById("signin-email")?.value || "").trim();
+  const password = (document.getElementById("signin-password")?.value || "").trim();
+  const name = (document.getElementById("signin-name")?.value || "").trim();
+  const roll = (document.getElementById("signin-roll")?.value || "").trim();
+
+  if (!email || !password) {
+    if (errAlert && errMsg) {
+      errMsg.innerText = "Please provide both email and password.";
+      errAlert.classList.remove("hidden");
+    }
+    return;
+  }
+
+  const submitBtn = document.getElementById("btn-submit-auth");
+  const submitText = document.getElementById("btn-submit-auth-text");
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitText) submitText.innerText = state.authMode === "register" ? "Creating Account..." : "Verifying Credentials...";
+
+  try {
+    const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+    const payload = state.authMode === "register"
+      ? { email, password, name, roll_number: roll || null }
+      : { email, password };
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (res.ok && data.status === "success" && data.session_token) {
+      localStorage.setItem("campusiq_session_token", data.session_token);
+      state.sessionToken = data.session_token;
+      state.currentUser = data.user;
+      state.currentStudent = data.student;
+
+      renderHeaderAuth(data.user, data.student);
+      populateMyProfileUI(data.user, data.student);
+      closeGoogleAuthModal();
+      showToast(`🎉 ${data.message || 'Authenticated successfully!'}`);
+      fetchDirectoryStudents();
+    } else {
+      if (errAlert && errMsg) {
+        errMsg.innerText = data.message || "Authentication failed. Please verify credentials.";
+        errAlert.classList.remove("hidden");
+      }
+      showToast(`❌ ${data.message || 'Authentication error'}`);
+    }
+  } catch (err) {
+    console.error("Auth error:", err);
+    if (errAlert && errMsg) {
+      errMsg.innerText = "Connection error. Please check your network.";
+      errAlert.classList.remove("hidden");
+    }
+    showToast("Network error during authentication.");
   } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `<span>Sign In & Continue</span><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>`;
-      lucide.createIcons();
+    if (submitBtn) submitBtn.disabled = false;
+    if (submitText) {
+      submitText.innerText = state.authMode === "register" ? "Create Account & Sign In" : "Sign In with Password";
     }
   }
 }
