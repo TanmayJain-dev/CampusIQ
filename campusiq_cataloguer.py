@@ -54,7 +54,7 @@ class CampusIQResourceCataloguer:
         if not self.has_root and not os.path.exists(self.cache_file):
             raise FileNotFoundError(f"Root academic directory does not exist: {self.root_dir} and cache file not found: {self.cache_file}")
 
-    def scan(self, semester_filter: Optional[int] = None, typeset_only: bool = False) -> List[Dict[str, Any]]:
+    def scan(self, semester_filter: Optional[int] = None, typeset_only: bool = True) -> List[Dict[str, Any]]:
         # If running on cloud without local file mount, load from pre-indexed cache
         if not self.has_root and os.path.exists(self.cache_file):
             try:
@@ -109,7 +109,7 @@ class CampusIQResourceCataloguer:
             except Exception as e:
                 print(f"[!] Warning reading tree from cache: {e}", file=sys.stderr)
 
-        catalog = self.scan()
+        catalog = self.scan(typeset_only=True)
         tree: Dict[int, Dict[str, Any]] = {}
 
         for item in catalog:
@@ -139,6 +139,7 @@ class CampusIQResourceCataloguer:
         return {
             "total_items": len(catalog),
             "total_semesters": len(tree),
+            "typeset_count": len([x for x in catalog if x.get("is_typeset", False)]),
             "semesters": {str(k): v for k, v in sorted(tree.items())}
         }
 
@@ -211,12 +212,9 @@ class CampusIQResourceCataloguer:
         else:
             exam_session = "Standard"
 
-        # Pretty Display Title
-        title_base = os.path.splitext(fname)[0].replace("_Typeset", "").replace("_", " ")
-        if is_typeset:
-            display_title = f"[Typeset] {title_base}"
-        else:
-            display_title = title_base
+        # Pretty Display Title (No 'Typeset' prefix)
+        title_base = os.path.splitext(fname)[0].replace("_Typeset", "").replace("_typeset", "").replace("_", " ").strip()
+        display_title = title_base
 
         tags = []
         if semester:
@@ -293,14 +291,16 @@ def main():
     parser.add_argument("--dir", type=str, default="/home/tanmay/Workspaces/Academics/College", help="Root directory of academic resources")
     parser.add_argument("--semester", type=int, help="Filter by specific semester (e.g. 3)")
     parser.add_argument("--subject", type=str, help="Filter by subject name")
-    parser.add_argument("--typeset-only", action="store_true", help="Include only verified typeset documents")
+    parser.add_argument("--typeset-only", action="store_true", default=True, help="Include only verified typeset documents (Default: True)")
+    parser.add_argument("--include-all", action="store_true", help="Include non-typeset reference documents")
     parser.add_argument("--export-json", type=str, help="File path to save JSON manifest")
     parser.add_argument("--export-markdown", type=str, help="File path to save Markdown catalog")
 
     args = parser.parse_args()
 
     cataloguer = CampusIQResourceCataloguer(args.dir)
-    items = cataloguer.scan(semester_filter=args.semester, typeset_only=args.typeset_only)
+    typeset_flag = False if args.include_all else True
+    items = cataloguer.scan(semester_filter=args.semester, typeset_only=typeset_flag)
 
     if args.subject:
         items = [i for i in items if args.subject.lower() in i["subject"].lower()]

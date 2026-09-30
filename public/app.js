@@ -20,7 +20,7 @@ const state = {
   vaultTree: null,
   vaultSemester: 3,
   vaultSubject: null,
-  typesetOnly: false,
+  typesetOnly: true,
   // ExamWeb State
   resultMode: "examweb",
   examWebSession: null,
@@ -574,7 +574,20 @@ function renderVaultHierarchy() {
     { title: "Official Scheme & Syllabus", aliases: ["Official Syllabus & Blueprints", "Official Syllabus", "syllabus"], icon: "file-text", color: "purple", desc: "Authorized University syllabus, scheme of examinations, and course outcomes" }
   ];
 
-  traysContainer.innerHTML = categories.map(cat => {
+  const activeCategories = categories.filter(cat => {
+    let items = [];
+    cat.aliases.forEach(alias => {
+      if (activeSubjData.categories && activeSubjData.categories[alias]) {
+        items = items.concat(activeSubjData.categories[alias]);
+      }
+    });
+    if (state.typesetOnly) {
+      items = items.filter(i => i.is_typeset);
+    }
+    return items.length > 0;
+  });
+
+  traysContainer.innerHTML = activeCategories.map(cat => {
     let items = [];
     cat.aliases.forEach(alias => {
       if (activeSubjData.categories && activeSubjData.categories[alias]) {
@@ -640,10 +653,11 @@ function renderVaultHierarchy() {
 
 function renderResourceCardHtml(r) {
   const typesetBadge = r.is_typeset
-    ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 TYPESET MASTER</span>`
+    ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 OFFICIAL MASTER</span>`
     : `<span class="px-2 py-0.5 rounded text-[9px] font-mono text-zinc-400 bg-zinc-800 border border-white/5">📄 REFERENCE</span>`;
 
-  const safeTitle = (r.title || '').replace(/'/g, "\\'");
+  const cleanTitle = (r.title || '').replace(/^\[typeset\]\s*/i, '').replace(/^typeset\s*[-:]?\s*/i, '').replace(/_Typeset$/i, '').trim();
+  const safeTitle = cleanTitle.replace(/'/g, "\\'");
   const encodedPath = encodeURIComponent(r.relative_path || '');
 
   return `
@@ -654,7 +668,7 @@ function renderResourceCardHtml(r) {
           <span class="text-[10px] font-mono text-zinc-500">${r.exam_session || 'Official'}</span>
         </div>
         <h4 class="text-xs font-semibold text-white leading-snug line-clamp-2 hover:text-emerald-400 transition-colors cursor-pointer" onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')">
-          ${r.title}
+          ${cleanTitle}
         </h4>
         <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5">
           <span>${r.subject_code || 'CODE'}</span>
@@ -722,10 +736,11 @@ function handleUniversalResourceSearch() {
       `;
     } else {
       gridContainer.innerHTML = filtered.map(r => {
-        const safeTitle = (r.title || '').replace(/'/g, "\\'");
+  const cleanTitle = (r.title || '').replace(/^\[typeset\]\s*/i, '').replace(/^typeset\s*[-:]?\s*/i, '').replace(/_Typeset$/i, '').trim();
+  const safeTitle = cleanTitle.replace(/'/g, "\\'");
         const encodedPath = encodeURIComponent(r.relative_path || '');
         const typesetBadge = r.is_typeset
-          ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 TYPESET MASTER</span>`
+    ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 OFFICIAL MASTER</span>`
           : `<span class="px-2 py-0.5 rounded text-[9px] font-mono text-zinc-400 bg-zinc-800 border border-white/5">📄 REFERENCE</span>`;
 
         return `
@@ -741,7 +756,7 @@ function handleUniversalResourceSearch() {
                 <span>${r.category}</span>
               </div>
               <h4 class="text-xs font-semibold text-white leading-snug line-clamp-2 hover:text-emerald-400 transition-colors cursor-pointer" onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')">
-                ${r.title}
+          ${cleanTitle}
               </h4>
               <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5">
                 <span>${r.subject_code || 'CODE'}</span>

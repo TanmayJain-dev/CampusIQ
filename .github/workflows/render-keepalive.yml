@@ -1,0 +1,42 @@
+name: Render Zero-Sleep Keep-Alive Heartbeat
+
+on:
+  schedule:
+    # Runs every 10 minutes 24/7/365 from GitHub Cloud
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    name: Ping Render Free-Tier Web Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Heartbeat Ping - CampusIQ
+        run: |
+          echo "Pinging CampusIQ at https://campusiq-i9aq.onrender.com/api/health..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 45 https://campusiq-i9aq.onrender.com/api/health || echo "FAILED")
+          echo "CampusIQ Response Code: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+            echo "CampusIQ is HOT and active!"
+          else
+            echo "Warning: CampusIQ responded with $STATUS (retrying once)..."
+            sleep 10
+            curl -s -f -m 60 https://campusiq-i9aq.onrender.com/api/health || true
+          fi
+
+      - name: Heartbeat Ping - n8n Automation Engine
+        run: |
+          echo "Pinging n8n at https://n8n-tanmay.onrender.com/healthz..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 45 https://n8n-tanmay.onrender.com/healthz || echo "FAILED")
+          echo "n8n Response Code: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+            echo "n8n is HOT and active!"
+          else
+            echo "Warning: n8n responded with $STATUS"
+          fi

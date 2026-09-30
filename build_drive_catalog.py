@@ -95,11 +95,8 @@ def extract_meta_from_drive_path(rel_path: str, drive_id: str) -> Dict[str, Any]
     else:
         exam_session = "Standard"
 
-    title_base = os.path.splitext(fname)[0].replace("_Typeset", "").replace("_typeset", "").replace("_", " ")
-    if is_typeset:
-        display_title = f"[Typeset] {title_base}"
-    else:
-        display_title = title_base
+    title_base = os.path.splitext(fname)[0].replace("_Typeset", "").replace("_typeset", "").replace("_", " ").strip()
+    display_title = title_base
 
     tags = []
     if semester:

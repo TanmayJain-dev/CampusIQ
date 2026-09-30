@@ -233,17 +233,17 @@
               Hierarchical Academic Library
             </h1>
             <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
-              Curated, publication-grade LaTeX typeset question papers, lecture notes, lab manuals, and official syllabi organized hierarchically by semester and subject.
+              Curated, publication-grade typeset university examination papers organized hierarchically by semester, subject, and session.
             </p>
           </div>
           <div class="flex items-center gap-3">
             <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
-              <span id="stat-typeset-count" class="text-lg font-bold text-emerald-400">52</span>
-              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Typeset Masters</span>
+              <span id="stat-typeset-count" class="text-lg font-bold text-emerald-400">111</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Official Papers</span>
             </div>
             <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
-              <span id="stat-total-resources" class="text-lg font-bold text-blue-400">231</span>
-              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Total Documents</span>
+              <span id="stat-total-resources" class="text-lg font-bold text-blue-400">111</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Total Papers</span>
             </div>
           </div>
         </div>
@@ -283,7 +283,7 @@
           <button onclick="setVaultSemester(3)" id="vault-sem-btn-3" class="vault-sem-btn px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold flex items-center gap-2 transition-all shadow-[0_0_12px_rgba(16,185,129,0.3)]">
             <i data-lucide="layers" class="w-3.5 h-3.5"></i>
             <span>Semester 3 (Current)</span>
-            <span class="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono" id="sem3-count">7 Subjects</span>
+            <span class="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono" id="sem3-count">5 Subjects</span>
           </button>
           <button onclick="setVaultSemester(2)" id="vault-sem-btn-2" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
             <i data-lucide="layers" class="w-3.5 h-3.5"></i>
@@ -293,10 +293,10 @@
           <button onclick="setVaultSemester(1)" id="vault-sem-btn-1" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
             <i data-lucide="layers" class="w-3.5 h-3.5"></i>
             <span>Semester 1</span>
-            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem1-count">6 Subjects</span>
+            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem1-count">5 Subjects</span>
           </button>
           <label class="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/90 border border-white/10 text-zinc-300 cursor-pointer select-none">
-            <input type="checkbox" id="typeset-only-toggle" onchange="toggleTypesetOnlyFilter()" class="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0">
+            <input type="checkbox" id="typeset-only-toggle" checked onchange="toggleTypesetOnlyFilter()" class="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0">
             <span class="text-[11px] font-semibold text-emerald-400">💎 Typeset Only</span>
           </label>
         </div>

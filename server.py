@@ -703,7 +703,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         category = params.get("category", [""])[0].lower()
         typeset_only = params.get("typeset", ["false"])[0].lower() in ["true", "1"]
         search = params.get("search", [""])[0].lower()
-        limit = int(params.get("limit", [100])[0])
+        limit = int(params.get("limit", [500])[0])
 
         filtered = catalog
         if semester.isdigit():
