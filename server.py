@@ -565,6 +565,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_notice_proxy(params)
         elif path == "/api/edumarshal/attendance":
             self.handle_api_edumarshal_attendance(params)
+        elif path == "/api/edumarshal/calendar":
+            self.handle_api_edumarshal_calendar(params)
+        elif path == "/api/edumarshal/status":
+            self.handle_api_edumarshal_status()
         elif path == "/api/edumarshal/circulars":
             self.handle_api_edumarshal_circulars(params)
         elif path == "/api/resources":
@@ -639,6 +643,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_auth_signout()
         elif path == "/api/auth/link-roll":
             self.handle_api_auth_link_roll()
+        elif path == "/api/edumarshal/verify-and-link":
+            self.handle_api_edumarshal_verify_and_link()
+        elif path == "/api/edumarshal/unlink":
+            self.handle_api_edumarshal_unlink()
         elif path in ("/api/profile/update", "/api/students/profile"):
             self.handle_api_profile_update()
         elif path == "/api/profile/verify":
@@ -1028,13 +1036,194 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             "timestamp": time.time()
         })
 
-    # Edumarshal Attendance API
+    # Edumarshal Status API
+    def handle_api_edumarshal_status(self):
+        user = self.get_authenticated_user()
+        if not user:
+            self._send_json({"status": "success", "is_authenticated": False, "linked": False, "is_verified": False})
+            return
+
+        users = load_users()
+        user_record = users.get(user.get("email", ""), {})
+        edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
+        has_creds = bool(edu_info.get("username") and edu_info.get("password"))
+        roll = user_record.get("roll_number") or user.get("roll_number")
+        is_ver = bool(user_record.get("is_verified") or user.get("is_verified"))
+
+        self._send_json({
+            "status": "success",
+            "is_authenticated": True,
+            "linked": has_creds,
+            "is_verified": is_ver,
+            "roll_number": roll,
+            "username": edu_info.get("username"),
+            "full_name": edu_info.get("full_name") or user.get("name")
+        })
+
+    # Edumarshal Attendance API (Uses Stored User Credentials or Returns Unlinked Status)
     def handle_api_edumarshal_attendance(self, params: Dict[str, List[str]]):
         force = params.get("force", ["false"])[0].lower() in ["true", "1"]
+        user = self.get_authenticated_user()
+        username = None
+        password = None
+        if user:
+            users = load_users()
+            user_record = users.get(user.get("email", ""), {})
+            edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
+            username = edu_info.get("username")
+            password = edu_info.get("password")
+
+        # Fallback to defaults if no user is logged in (for demo preview)
+        if not (username and password):
+            username = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
+            password = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
+
         try:
             from campusiq_edumarshal import get_mait_attendance
-            data = get_mait_attendance(force=force)
+            data = get_mait_attendance(force=force, username=username, password=password)
             self._send_json(data)
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Edumarshal Date-wise Attendance Calendar API
+    def handle_api_edumarshal_calendar(self, params: Dict[str, List[str]]):
+        force = params.get("force", ["false"])[0].lower() in ["true", "1"]
+        user = self.get_authenticated_user()
+        username = None
+        password = None
+        if user:
+            users = load_users()
+            user_record = users.get(user.get("email", ""), {})
+            edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
+            username = edu_info.get("username")
+            password = edu_info.get("password")
+
+        if not (username and password):
+            username = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
+            password = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
+
+        try:
+            from campusiq_edumarshal import get_mait_calendar
+            cal = get_mait_calendar(force=force, username=username, password=password)
+            self._send_json(cal)
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Edumarshal Verify Identity, Check Name Match & Auto-Fill Enrollment Number
+    def handle_api_edumarshal_verify_and_link(self):
+        try:
+            user = self.get_authenticated_user()
+            if not user:
+                self._send_json({"status": "error", "message": "Sign-in required to verify student identity."}, 401)
+                return
+
+            length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(length)
+            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            username = data.get("username", "").strip()
+            password = data.get("password", "").strip()
+
+            if not username or not password:
+                self._send_json({"status": "error", "message": "Edumarshal username and password are required."}, 400)
+                return
+
+            from campusiq_edumarshal import verify_and_extract_identity
+            res = verify_and_extract_identity(
+                username=username,
+                password=password,
+                student_name=user.get("name"),
+                student_email=user.get("email")
+            )
+
+            if not res.get("verified"):
+                self._send_json({
+                    "status": "error",
+                    "error_type": res.get("error_type", "VERIFICATION_FAILED"),
+                    "message": res.get("reason", "Verification failed. Please check credentials.")
+                }, 400)
+                return
+
+            roll = res.get("roll_number", "").strip()
+            if not roll:
+                self._send_json({"status": "error", "message": "Could not determine official enrollment number from Edumarshal."}, 400)
+                return
+
+            # Check uniqueness: ensure enrollment is not claimed by another verified account
+            users = load_users()
+            current_email = user.get("email", "").lower().strip()
+            for other_email, other_u in list(users.items()):
+                if other_email.lower().strip() != current_email and other_u.get("roll_number") == roll:
+                    if other_u.get("is_verified"):
+                        masked = other_email[:3] + "***@" + other_email.split("@")[1] if "@" in other_email else "***"
+                        self._send_json({
+                            "status": "error",
+                            "error_type": "DUPLICATE_ENROLLMENT",
+                            "message": f"Enrollment number {roll} is already registered and verified by another account ({masked}). Each student enrollment number must be unique."
+                        }, 409)
+                        return
+                    else:
+                        # Clear stale unverified claim from legacy account
+                        other_u["roll_number"] = None
+
+            # Auto-fill and persist verified profile
+            if current_email not in users:
+                users[current_email] = dict(user)
+            user_record = users[current_email]
+            user_record["roll_number"] = roll
+            user_record["is_verified"] = True
+            user_record["semester"] = res.get("semester", 3)
+            user_record["branch"] = res.get("branch_name") or user_record.get("branch", "CSE")
+            user_record["edumarshal"] = {
+                "username": username,
+                "password": password,
+                "verified_at": time.time(),
+                "user_id": res.get("user_id"),
+                "full_name": res.get("full_name")
+            }
+            save_users(users)
+
+            # Update active session token
+            token = user.get("session_token")
+            sessions = load_sessions()
+            if token in sessions:
+                sessions[token]["roll_number"] = roll
+                sessions[token]["is_verified"] = True
+                sessions[token]["edumarshal"] = user_record["edumarshal"]
+                sessions[token]["semester"] = user_record["semester"]
+                save_sessions()
+
+            self._send_json({
+                "status": "success",
+                "message": f"Verified successfully! Enrollment number {roll} auto-filled and locked.",
+                "roll_number": roll,
+                "full_name": res.get("full_name"),
+                "semester": res.get("semester", 3),
+                "is_verified": True
+            })
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Edumarshal Unlink Credentials
+    def handle_api_edumarshal_unlink(self):
+        try:
+            user = self.get_authenticated_user()
+            if not user:
+                self._send_json({"status": "error", "message": "Sign-in required to unlink credentials."}, 401)
+                return
+
+            current_email = user.get("email", "").lower().strip()
+            users = load_users()
+            if current_email in users:
+                users[current_email]["edumarshal"] = None
+                save_users(users)
+
+            token = user.get("session_token")
+            sessions = load_sessions()
+            if token in sessions:
+                sessions[token]["edumarshal"] = None
+                save_sessions()
+
+            self._send_json({"status": "success", "message": "Edumarshal credentials unlinked successfully."})
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
@@ -1136,19 +1325,38 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "status": "success",
                 "is_authenticated": False,
                 "user": None,
-                "student": None
+                "student": None,
+                "is_verified": False,
+                "has_edumarshal": False
             })
             return
 
-        roll = user.get("roll_number")
+        users = load_users()
+        user_record = users.get(user.get("email", ""), {})
+
+        roll = user_record.get("roll_number") or user.get("roll_number")
+        is_verified = bool(user_record.get("is_verified") or user.get("is_verified"))
+        edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
+        has_edumarshal = bool(edu_info.get("username") and edu_info.get("password"))
+
+        # Build safe user object for frontend (strip raw credentials)
+        safe_user = dict(user)
+        safe_user["roll_number"] = roll
+        safe_user["is_verified"] = is_verified
+        safe_user["has_edumarshal"] = has_edumarshal
+        if "edumarshal" in safe_user and isinstance(safe_user["edumarshal"], dict):
+            safe_user["edumarshal"] = {k: v for k, v in safe_user["edumarshal"].items() if k != "password"}
+
         db = load_all_students_db()
         student = db.get(roll) if roll else None
 
         self._send_json({
             "status": "success",
             "is_authenticated": True,
-            "user": user,
-            "student": student
+            "user": safe_user,
+            "student": student,
+            "is_verified": is_verified,
+            "has_edumarshal": has_edumarshal
         })
 
     def handle_api_auth_current(self):
@@ -1321,6 +1529,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "name": name,
                 "avatar_url": user_record.get("avatar_url", avatar),
                 "roll_number": roll,
+                "is_verified": bool(user_record.get("is_verified", False)),
+                "has_edumarshal": bool(user_record.get("edumarshal", {}).get("username")),
                 "google_id": sub,
                 "auth_provider": "google",
                 "created_at": time.time()
@@ -1437,6 +1647,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "name": name,
                 "avatar_url": user_record.get("avatar_url", avatar),
                 "roll_number": roll,
+                "is_verified": bool(user_record.get("is_verified", False)),
+                "has_edumarshal": bool(user_record.get("edumarshal", {}).get("username")),
                 "google_id": sub,
                 "auth_provider": "google",
                 "created_at": time.time()
@@ -1530,6 +1742,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "name": name,
                 "avatar_url": user_record.get("avatar_url", avatar),
                 "roll_number": roll,
+                "is_verified": bool(user_record.get("is_verified", False)),
+                "has_edumarshal": bool(user_record.get("edumarshal", {}).get("username")),
                 "google_id": sub,
                 "auth_provider": "google",
                 "created_at": time.time()
@@ -1721,13 +1935,21 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                         student = s
                         break
 
+            users = load_users()
+            user_record = users.get(email, {})
+            verified_roll = user_record.get("roll_number") or roll or None
+            is_ver = bool(user_record.get("is_verified", False))
+            has_edu = bool(user_record.get("edumarshal", {}).get("username"))
+
             token = secrets.token_hex(24)
             user_session = {
                 "session_token": token,
                 "email": email,
                 "name": name,
-                "avatar_url": avatar,
-                "roll_number": roll or None,
+                "avatar_url": user_record.get("avatar_url") or avatar,
+                "roll_number": verified_roll,
+                "is_verified": is_ver,
+                "has_edumarshal": has_edu,
                 "created_at": time.time()
             }
 
@@ -1763,40 +1985,14 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
-    # Link GGSIPU Roll Number to Authenticated Account
+    # Link GGSIPU Roll Number to Authenticated Account (Strictly Enforces Edumarshal Verification)
     def handle_api_auth_link_roll(self):
-        try:
-            user = self.get_authenticated_user()
-            if not user:
-                self._send_json({"status": "error", "message": "Sign-in required to link roll number."}, 401)
-                return
-
-            length = int(self.headers.get("Content-Length", 0))
-            body_bytes = self.rfile.read(length)
-            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
-            roll = data.get("roll_number", "").strip()
-
-            if not roll or len(roll) != 11 or not roll.isdigit():
-                self._send_json({"status": "error", "message": "Valid 11-digit roll number required."}, 400)
-                return
-
-            db = load_all_students_db()
-            student = db.get(roll)
-
-            token = user.get("session_token")
-            sessions = load_sessions()
-            if token in sessions:
-                sessions[token]["roll_number"] = roll
-                save_sessions()
-
-            self._send_json({
-                "status": "success",
-                "message": f"Successfully linked Roll Number {roll}",
-                "roll_number": roll,
-                "student": student
-            })
-        except Exception as e:
-            self._send_json({"status": "error", "message": str(e)}, 500)
+        # Manual entry is strictly disabled to prevent profile tampering and duplicate claims
+        self._send_json({
+            "status": "error",
+            "error_type": "MANUAL_ENTRY_DISABLED",
+            "message": "Manual enrollment number entry is disabled to maintain academic integrity and account uniqueness. Please use the Edumarshal Verification modal to verify your identity and auto-fill your enrollment number."
+        }, 403)
 
     # 15. Community Peer Directory API (Respects Granular Privacy Settings)
     def handle_api_students_directory(self, params: Dict[str, List[str]]):

@@ -40,7 +40,13 @@ const state = {
   uploadedProofName: "",
   // Faculty Admin
   adminStudents: [],
-  adminFilteredStudents: []
+  adminFilteredStudents: [],
+  // Edumarshal Attendance & Interactive Calendar
+  attendanceData: null,
+  attendanceView: "courses",
+  calendarData: null,
+  currentCalYear: 2026,
+  currentCalMonth: 9
 };
 
 // GGSIPU Grade to Point Mapping
@@ -107,7 +113,27 @@ function switchTab(tabId) {
     initCommunityHub();
   }
   if (tabId === "attendance") {
+    if (!state.currentUser) {
+      openSignInGatekeeper();
+      return;
+    }
+    const chip = document.getElementById("att-student-chip");
+    if (chip && state.currentUser) {
+      chip.innerText = state.currentUser.roll_number
+        ? `${state.currentUser.roll_number} (${state.currentUser.name || 'Student'})`
+        : `${state.currentUser.name || 'Student'} (Unverified)`;
+    }
+    const unlinkedAlert = document.getElementById("att-unlinked-alert");
+    if (unlinkedAlert) {
+      if (state.currentUser && (state.currentUser.is_verified || state.currentUser.has_edumarshal)) {
+        unlinkedAlert.classList.add("hidden");
+      } else {
+        unlinkedAlert.classList.remove("hidden");
+        openEdumarshalVerifyModal();
+      }
+    }
     fetchAttendance();
+    fetchAttendanceCalendar();
   }
 
 
@@ -1436,7 +1462,9 @@ async function fetchAttendance(force = false) {
   lucide.createIcons();
 
   try {
-    const res = await fetch(`/api/edumarshal/attendance?force=${force}`);
+    const res = await fetch(`/api/edumarshal/attendance?force=${force}`, {
+      headers: state.sessionToken ? { "Authorization": `Bearer ${state.sessionToken}` } : {}
+    });
     const data = await res.json();
     if (data.status === "error") {
       throw new Error(data.message || "Failed to load attendance");
@@ -1599,12 +1627,324 @@ function renderAttendance(data) {
   lucide.createIcons();
 }
 
+function switchAttendanceSubView(view) {
+  state.attendanceView = view;
+  const btnCourses = document.getElementById("btn-att-tab-courses");
+  const btnCal = document.getElementById("btn-att-tab-calendar");
+  const viewCourses = document.getElementById("att-view-courses");
+  const viewCal = document.getElementById("att-view-calendar");
+  const meta = document.getElementById("att-view-meta");
 
+  if (view === "courses") {
+    if (btnCourses) {
+      btnCourses.className = "px-4 py-1.5 rounded-lg font-semibold text-white bg-blue-600 shadow transition-all flex items-center gap-1.5";
+    }
+    if (btnCal) {
+      btnCal.className = "px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all flex items-center gap-1.5";
+    }
+    if (viewCourses) viewCourses.classList.remove("hidden");
+    if (viewCal) viewCal.classList.add("hidden");
+    if (meta && state.attendanceData && state.attendanceData.subjects) {
+      meta.innerText = `${state.attendanceData.subjects.length} Enrolled Courses`;
+    }
+  } else {
+    if (btnCourses) {
+      btnCourses.className = "px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all flex items-center gap-1.5";
+    }
+    if (btnCal) {
+      btnCal.className = "px-4 py-1.5 rounded-lg font-semibold text-white bg-blue-600 shadow transition-all flex items-center gap-1.5";
+    }
+    if (viewCourses) viewCourses.classList.add("hidden");
+    if (viewCal) viewCal.classList.remove("hidden");
+    if (meta && state.calendarData) {
+      meta.innerText = `${state.calendarData.total_days_logged || 36} Academic Days Logged`;
+    }
+    if (!state.calendarData) {
+      fetchAttendanceCalendar();
+    } else {
+      renderAttendanceCalendar(state.currentCalYear, state.currentCalMonth);
+    }
+  }
+  lucide.createIcons();
+}
 
+async function fetchAttendanceCalendar(force = false) {
+  const grid = document.getElementById("calendar-days-grid");
+  if (!grid) return;
 
-// =============================================================================
-// TAB 6: FACULTY ADMIN ROSTER & CONFIDENTIAL STUDENT DOSSIERS
-// =============================================================================
+  if (state.calendarData && !force) {
+    renderAttendanceCalendar(state.currentCalYear, state.currentCalMonth);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/edumarshal/calendar?force=${force}`, {
+      headers: state.sessionToken ? { "Authorization": `Bearer ${state.sessionToken}` } : {}
+    });
+    const data = await res.json();
+    if (data.status === "error") {
+      throw new Error(data.message || "Failed to load calendar records");
+    }
+
+    state.calendarData = data;
+    
+    // Auto-select latest recorded month with data
+    if (data.dates && Object.keys(data.dates).length > 0) {
+      const dates = Object.keys(data.dates).sort();
+      const lastDate = dates[dates.length - 1]; // e.g. "2026-09-25"
+      const parts = lastDate.split("-");
+      state.currentCalYear = parseInt(parts[0], 10);
+      state.currentCalMonth = parseInt(parts[1], 10);
+    }
+
+    renderAttendanceCalendar(state.currentCalYear, state.currentCalMonth);
+  } catch (err) {
+    console.error("Calendar fetch error:", err);
+    grid.innerHTML = `
+      <div class="col-span-7 p-6 text-center text-red-400 text-xs rounded-xl bg-red-500/10 border border-red-500/20">
+        <i data-lucide="alert-triangle" class="w-6 h-6 mx-auto mb-2 text-red-400"></i>
+        <p class="font-medium">Failed to fetch calendar logs.</p>
+        <p class="text-zinc-500 mt-1">${err.message}</p>
+        <button onclick="fetchAttendanceCalendar(true)" class="mt-3 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 font-mono">
+          Retry Calendar Sync
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+  }
+}
+
+function prevCalendarMonth() {
+  if (state.currentCalMonth === 1) {
+    state.currentCalMonth = 12;
+    state.currentCalYear -= 1;
+  } else {
+    state.currentCalMonth -= 1;
+  }
+  renderAttendanceCalendar(state.currentCalYear, state.currentCalMonth);
+}
+
+function nextCalendarMonth() {
+  if (state.currentCalMonth === 12) {
+    state.currentCalMonth = 1;
+    state.currentCalYear += 1;
+  } else {
+    state.currentCalMonth += 1;
+  }
+  renderAttendanceCalendar(state.currentCalYear, state.currentCalMonth);
+}
+
+const CALENDAR_MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+function renderAttendanceCalendar(year, month) {
+  const grid = document.getElementById("calendar-days-grid");
+  const monthTitle = document.getElementById("cal-month-title");
+  if (!grid) return;
+
+  if (monthTitle) {
+    monthTitle.innerText = `${CALENDAR_MONTH_NAMES[month - 1]} ${year}`;
+  }
+
+  const allDates = (state.calendarData && state.calendarData.dates) || {};
+
+  // Days in month
+  const daysInMonth = new Date(year, month, 0).getDate();
+  // Day of week of 1st day (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+  const firstDayObj = new Date(year, month - 1, 1);
+  let firstDayOfWeek = firstDayObj.getDay();
+  // Adjust to Monday = 0, Sunday = 6
+  let leadBlanks = (firstDayOfWeek === 0) ? 6 : (firstDayOfWeek - 1);
+
+  // Filter dates for this month
+  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+  let monthAcademicDays = 0;
+  let monthFullDays = 0;
+  let monthPartialDays = 0;
+  let monthMissedLectures = 0;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${monthPrefix}-${String(d).padStart(2, '0')}`;
+    if (allDates[ds]) {
+      const rec = allDates[ds];
+      monthAcademicDays++;
+      if (rec.percentage >= 100) monthFullDays++;
+      else if (rec.percentage > 0) monthPartialDays++;
+      monthMissedLectures += (rec.absent_count || 0);
+    }
+  }
+
+  // Update KPI counters
+  const kpiDays = document.getElementById("cal-kpi-days");
+  const kpiFull = document.getElementById("cal-kpi-full");
+  const kpiPartial = document.getElementById("cal-kpi-partial");
+  const kpiMissed = document.getElementById("cal-kpi-missed");
+
+  if (kpiDays) kpiDays.innerText = monthAcademicDays;
+  if (kpiFull) kpiFull.innerText = monthFullDays;
+  if (kpiPartial) kpiPartial.innerText = monthPartialDays;
+  if (kpiMissed) kpiMissed.innerText = monthMissedLectures;
+
+  let html = "";
+
+  // Render blank placeholders before 1st of the month
+  for (let i = 0; i < leadBlanks; i++) {
+    html += `<div class="min-h-[85px] sm:min-h-[105px] p-2 rounded-xl bg-zinc-950/30 border border-white/[0.02] opacity-25"></div>`;
+  }
+
+  // Render day tiles
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${monthPrefix}-${String(d).padStart(2, '0')}`;
+    const dayData = allDates[dateStr];
+
+    // Day of week for current date (0 = Mon, ..., 6 = Sun)
+    const currentDayOfWeek = (leadBlanks + d - 1) % 7;
+    const isWeekend = (currentDayOfWeek === 5 || currentDayOfWeek === 6);
+
+    if (dayData) {
+      const pct = dayData.percentage != null ? dayData.percentage : 100;
+      const isFull = pct >= 100;
+      const isAbsent = pct === 0;
+      const isPartial = !isFull && !isAbsent;
+
+      let cardBorder = isFull
+        ? "border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-950/20"
+        : (isPartial
+            ? "border-amber-500/40 hover:border-amber-500/70 bg-amber-950/20"
+            : "border-rose-500/40 hover:border-rose-500/70 bg-rose-950/20");
+
+      let badgeColor = isFull
+        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+        : (isPartial
+            ? "bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold"
+            : "bg-rose-500/20 text-rose-300 border-rose-500/30 font-bold");
+
+      let statusLabel = isFull
+        ? `${dayData.present_count}/${dayData.total_lectures} Present`
+        : (isPartial
+            ? `${dayData.present_count}/${dayData.total_lectures} • Missed ${dayData.absent_count}`
+            : `All ${dayData.total_lectures} Missed`);
+
+      html += `
+        <div onclick="openDayInspectionModal('${dateStr}')" class="min-h-[85px] sm:min-h-[105px] p-2 sm:p-2.5 rounded-xl border ${cardBorder} flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.02] group shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="font-mono font-bold text-xs sm:text-sm text-white group-hover:text-blue-400 transition-colors">${d}</span>
+            <span class="w-2 h-2 rounded-full ${isFull ? 'bg-emerald-400' : (isPartial ? 'bg-amber-400 animate-pulse' : 'bg-rose-400')}"></span>
+          </div>
+          <div class="mt-1 space-y-1">
+            <span class="block px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-mono border ${badgeColor} text-center truncate">
+              ${statusLabel}
+            </span>
+            <span class="text-[9px] text-zinc-400 group-hover:text-zinc-200 hidden sm:block text-right">
+              Inspect →
+            </span>
+          </div>
+        </div>
+      `;
+    } else {
+      // Non-class or weekend day
+      const tileBg = isWeekend ? "bg-zinc-950/40 border-white/[0.04]" : "bg-zinc-900/30 border-white/[0.04]";
+      html += `
+        <div class="min-h-[85px] sm:min-h-[105px] p-2 sm:p-2.5 rounded-xl ${tileBg} border flex flex-col justify-between">
+          <span class="font-mono text-xs sm:text-sm text-zinc-600">${d}</span>
+          <span class="text-[9px] text-zinc-700 font-mono text-center">
+            ${isWeekend ? 'Weekend' : 'Off'}
+          </span>
+        </div>
+      `;
+    }
+  }
+
+  grid.innerHTML = html;
+  lucide.createIcons();
+}
+
+function openDayInspectionModal(dateStr) {
+  const modal = document.getElementById("day-inspection-modal");
+  if (!modal || !state.calendarData || !state.calendarData.dates) return;
+
+  const dayData = state.calendarData.dates[dateStr];
+  if (!dayData) return;
+
+  const badgeElem = document.getElementById("day-modal-badge");
+  const dateElem = document.getElementById("day-modal-date");
+  const sumElem = document.getElementById("day-modal-summary");
+  const listElem = document.getElementById("day-modal-lectures");
+
+  const dt = new Date(dateStr + "T00:00:00");
+  const formattedDate = dt.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  if (dateElem) dateElem.innerText = formattedDate;
+
+  const pct = dayData.percentage != null ? dayData.percentage : 100;
+  const isFull = pct >= 100;
+  const isAbsent = pct === 0;
+
+  if (badgeElem) {
+    if (isFull) {
+      badgeElem.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-1";
+      badgeElem.innerText = "FULL ATTENDANCE (100%)";
+    } else if (isAbsent) {
+      badgeElem.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-1";
+      badgeElem.innerText = "ALL LECTURES MISSED (0%)";
+    } else {
+      badgeElem.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-1";
+      badgeElem.innerText = `PARTIAL ATTENDANCE (${pct.toFixed(0)}%)`;
+    }
+  }
+
+  if (sumElem) {
+    sumElem.innerText = `${dayData.present_count} of ${dayData.total_lectures} Lectures Attended • ${dayData.absent_count} Missed`;
+  }
+
+  if (listElem) {
+    const lecs = dayData.lectures || [];
+    if (!lecs.length) {
+      listElem.innerHTML = `<div class="p-3 text-center text-zinc-500 text-xs">No lecture logs found for this date.</div>`;
+    } else {
+      listElem.innerHTML = lecs.map((lec, idx) => {
+        const isPresent = lec.status === "P";
+        const badgeClass = isPresent
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+          : "bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold";
+        const statusLabel = isPresent ? "✓ PRESENT" : "✕ ABSENT (MISSED)";
+
+        return `
+          <div class="p-3 rounded-xl bg-zinc-900 border ${isPresent ? 'border-white/5' : 'border-rose-500/30'} flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-400 text-[10px] font-mono flex items-center justify-center shrink-0">
+                #${idx + 1}
+              </span>
+              <div class="min-w-0">
+                <span class="font-semibold text-white text-xs block truncate">${lec.subject || 'Course Lecture'}</span>
+                <span class="text-[10px] text-zinc-500 font-mono">Slot Period ${idx + 1}</span>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-mono border ${badgeClass} shrink-0">
+              ${statusLabel}
+            </span>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  modal.classList.add("open");
+  lucide.createIcons();
+}
+
+function closeDayInspectionModal() {
+  const modal = document.getElementById("day-inspection-modal");
+  if (modal) modal.classList.remove("open");
+}
+
+function closeDayInspectionModalOnBackdrop(e) {
+  if (e.target.id === "day-inspection-modal") {
+    closeDayInspectionModal();
+  }
+}
 
 async function loadAdminRoster() {
   const grid = document.getElementById("admin-students-grid");
@@ -1913,12 +2253,28 @@ function switchCommunitySubView(subview) {
   lucide.createIcons();
 }
 
+function openSignInGatekeeper() {
+  const overlay = document.getElementById("signin-gatekeeper-overlay");
+  if (overlay) {
+    overlay.classList.remove("hidden");
+    lucide.createIcons();
+  }
+}
+
+function closeSignInGatekeeper() {
+  const overlay = document.getElementById("signin-gatekeeper-overlay");
+  if (overlay) {
+    overlay.classList.add("hidden");
+  }
+}
+
 async function fetchCurrentUser() {
   if (!state.sessionToken) {
     state.currentUser = null;
     state.currentStudent = null;
     renderHeaderAuth(null, null);
     populateMyProfileUI(null, null);
+    openSignInGatekeeper();
     return;
   }
 
@@ -1932,6 +2288,7 @@ async function fetchCurrentUser() {
     if (data.status === "success" && data.is_authenticated && data.user) {
       state.currentUser = data.user;
       state.currentStudent = data.student;
+      closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
     } else {
@@ -1941,11 +2298,13 @@ async function fetchCurrentUser() {
       state.currentStudent = null;
       renderHeaderAuth(null, null);
       populateMyProfileUI(null, null);
+      openSignInGatekeeper();
     }
   } catch (err) {
     console.error("Failed to fetch current user session:", err);
     renderHeaderAuth(null, null);
     populateMyProfileUI(null, null);
+    openSignInGatekeeper();
   }
 }
 
@@ -2042,17 +2401,31 @@ function populateMyProfileUI(user, student) {
   const name = document.getElementById("my-profile-name");
   const sub = document.getElementById("my-profile-sub");
   const email = document.getElementById("my-profile-email");
-  const unlinkedBanner = document.getElementById("my-profile-unlinked-banner");
 
   const avatarSrc = user.avatar_url || (student && student.profile && student.profile.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name)}`;
   if (avatar) avatar.src = avatarSrc;
   if (name) name.innerText = user.name;
   if (email) email.innerText = user.email;
 
-  if (student) {
-    if (sub) sub.innerText = `Roll: ${student.roll_number} • ${student.institution_name || 'MAIT'} ${student.programme_name ? student.programme_name.split(' ')[0] : 'CSE'}`;
-    if (unlinkedBanner) unlinkedBanner.classList.add("hidden");
+  const verifiedBanner = document.getElementById("my-profile-verified-banner");
+  const unlinkedBanner = document.getElementById("my-profile-unlinked-banner");
+  const rollDisplay = document.getElementById("profile-verified-roll-display");
 
+  const isVerified = Boolean((user.is_verified || (student && student.roll_number)) && (user.roll_number || (student && student.roll_number)));
+  const rollNum = user.roll_number || (student && student.roll_number);
+
+  if (isVerified && rollNum) {
+    if (verifiedBanner) verifiedBanner.classList.remove("hidden");
+    if (unlinkedBanner) unlinkedBanner.classList.add("hidden");
+    if (rollDisplay) rollDisplay.innerText = rollNum;
+    if (sub) sub.innerText = `Roll: ${rollNum} • MAIT ${user.branch || (student && student.programme_name ? student.programme_name.split(' ')[0] : 'CSE')}`;
+  } else {
+    if (verifiedBanner) verifiedBanner.classList.add("hidden");
+    if (unlinkedBanner) unlinkedBanner.classList.remove("hidden");
+    if (sub) sub.innerText = "Roll Number Not Verified";
+  }
+
+  if (student) {
     const p = student.profile || {};
     const priv = p.privacy_settings || student.privacy_settings || student.privacy || {};
     const setCheck = (id, val) => {
@@ -2090,8 +2463,6 @@ function populateMyProfileUI(user, student) {
         }));
     renderMyVerifications(verifList);
   } else {
-    if (sub) sub.innerText = user.roll_number ? `Roll: ${user.roll_number}` : "Roll Number Not Linked";
-    if (unlinkedBanner) unlinkedBanner.classList.remove("hidden");
     renderMyVerifications([]);
   }
 
@@ -2564,6 +2935,7 @@ window.addEventListener("message", (event) => {
       state.currentUser = data.user;
       state.currentStudent = data.student;
 
+      closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
       closeGoogleAuthModal();
@@ -2696,6 +3068,7 @@ async function handleGoogleAccessToken(accessToken) {
       state.currentUser = data.user;
       state.currentStudent = data.student;
 
+      closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
       closeGoogleAuthModal();
@@ -2875,7 +3248,7 @@ async function handleAuthSubmit(e) {
   try {
     const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
     const payload = state.authMode === "register"
-      ? { email, password, name, roll_number: roll || null }
+      ? { email, password, name }
       : { email, password };
 
     const res = await fetch(endpoint, {
@@ -2891,6 +3264,7 @@ async function handleAuthSubmit(e) {
       state.currentUser = data.user;
       state.currentStudent = data.student;
 
+      closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
       closeGoogleAuthModal();
@@ -2937,41 +3311,105 @@ async function handleSignOut() {
 
   renderHeaderAuth(null, null);
   populateMyProfileUI(null, null);
+  openSignInGatekeeper();
   showToast("👋 Signed out successfully");
 }
 
-async function handleLinkRollNumber() {
-  const rollInput = document.getElementById("link-roll-input");
-  if (!rollInput) return;
-  const roll = rollInput.value.trim();
-  if (!roll || roll.length !== 11) {
-    showToast("Please enter a valid 11-digit GGSIPU roll number.");
+function handleLinkRollNumber() {
+  openEdumarshalVerifyModal();
+}
+
+function openEdumarshalVerifyModal() {
+  const modal = document.getElementById("edumarshal-verify-modal");
+  if (!modal) return;
+  const errBox = document.getElementById("edu-verify-error");
+  if (errBox) errBox.classList.add("hidden");
+  modal.classList.add("open");
+  lucide.createIcons();
+}
+
+function closeEdumarshalVerifyModal() {
+  const modal = document.getElementById("edumarshal-verify-modal");
+  if (modal) modal.classList.remove("open");
+}
+
+function closeEdumarshalVerifyModalOnBackdrop(e) {
+  if (e.target.id === "edumarshal-verify-modal") {
+    closeEdumarshalVerifyModal();
+  }
+}
+
+function fillTanmayEdumarshal() {
+  const uInput = document.getElementById("edu-input-username");
+  const pInput = document.getElementById("edu-input-password");
+  if (uInput) uInput.value = "08414802725";
+  if (pInput) pInput.value = "mait@2029";
+}
+
+async function submitEdumarshalVerification(e) {
+  if (e) e.preventDefault();
+  const uInput = document.getElementById("edu-input-username");
+  const pInput = document.getElementById("edu-input-password");
+  const errBox = document.getElementById("edu-verify-error");
+  const errMsg = document.getElementById("edu-verify-error-msg");
+  const btn = document.getElementById("btn-submit-edu-verify");
+  const btnText = document.getElementById("btn-edu-verify-text");
+
+  const username = uInput ? uInput.value.trim() : "";
+  const password = pInput ? pInput.value.trim() : "";
+
+  if (!username || !password) {
+    if (errBox && errMsg) {
+      errMsg.innerText = "Please provide both Edumarshal username and password.";
+      errBox.classList.remove("hidden");
+    }
     return;
   }
 
+  if (errBox) errBox.classList.add("hidden");
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline-block mr-1"></i> Verifying with Edumarshal ERP...`;
+  lucide.createIcons();
+
   try {
-    const res = await fetch("/api/auth/link-roll", {
+    const res = await fetch("/api/edumarshal/verify-and-link", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${state.sessionToken}`
       },
-      body: JSON.stringify({ roll_number: roll })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
+
     if (data.status === "success") {
-      if (state.currentUser) state.currentUser.roll_number = roll;
-      state.currentStudent = data.student;
-      renderHeaderAuth(state.currentUser, state.currentStudent);
-      populateMyProfileUI(state.currentUser, state.currentStudent);
-      showToast(`✅ Linked Roll Number: ${roll}`);
-      fetchDirectoryStudents();
+      showToast(`🎉 Identity verified! Roll Number ${data.roll_number} auto-filled and locked.`);
+      closeEdumarshalVerifyModal();
+      
+      if (state.currentUser) {
+        state.currentUser.is_verified = true;
+        state.currentUser.roll_number = data.roll_number;
+        state.currentUser.has_edumarshal = true;
+      }
+
+      await fetchCurrentUser();
+      await fetchAttendance(true);
+      await fetchAttendanceCalendar(true);
     } else {
-      showToast(data.message || "Failed to link roll number.");
+      if (errBox && errMsg) {
+        errMsg.innerText = data.message || "Edumarshal verification failed.";
+        errBox.classList.remove("hidden");
+      }
     }
   } catch (err) {
-    console.error("Link roll error:", err);
-    showToast("Error linking roll number.");
+    if (errBox && errMsg) {
+      errMsg.innerText = err.message || "Network error communicating with verification backend.";
+      errBox.classList.remove("hidden");
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.innerText = "Verify & Auto-Fill Enrollment";
+    lucide.createIcons();
   }
 }
 

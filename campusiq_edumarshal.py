@@ -24,15 +24,8 @@ DEFAULT_PASSWORD = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
 EDUMARSHAL_BASE = "https://app.edumarshal.com"
 CLOUDFRONT_BASE = "https://dnhxw4vnj977w.cloudfront.net"
 
-# Cache token and data in memory with TTL
-_SESSION_CACHE = {
-    "token_data": None,
-    "token_expiry": 0,
-    "attendance_data": None,
-    "attendance_expiry": 0,
-    "circulars_data": None,
-    "circulars_expiry": 0
-}
+# Cache token and data in memory with TTL per username
+_SESSION_CACHE = {}
 
 
 class EdumarshalClient:
@@ -46,11 +39,29 @@ class EdumarshalClient:
         self.ssl_ctx.verify_mode = ssl.CERT_NONE
         self.base_url = EDUMARSHAL_BASE
 
+        if self.username not in _SESSION_CACHE:
+            _SESSION_CACHE[self.username] = {
+                "token_data": None,
+                "token_expiry": 0,
+                "profile_data": None,
+                "profile_expiry": 0,
+                "attendance_data": None,
+                "attendance_expiry": 0,
+                "calendar_data": None,
+                "calendar_expiry": 0,
+                "circulars_data": None,
+                "circulars_expiry": 0
+            }
+
+    @property
+    def cache(self) -> Dict[str, Any]:
+        return _SESSION_CACHE[self.username]
+
     def authenticate(self, force: bool = False) -> Dict[str, Any]:
         """Authenticate via OAuth2 Password Grant and obtain Bearer token."""
         now = time.time()
-        cached_tok = _SESSION_CACHE["token_data"]
-        if not force and cached_tok and now < _SESSION_CACHE["token_expiry"]:
+        cached_tok = self.cache.get("token_data")
+        if not force and cached_tok and now < self.cache.get("token_expiry", 0):
             return cached_tok
 
         post_data = urllib.parse.urlencode({
@@ -74,8 +85,8 @@ class EdumarshalClient:
                 token_data = json.loads(resp.read().decode("utf-8"))
                 expires_in = int(token_data.get("expires_in", 86400))
                 # Set local expiry 5 minutes before official expiry
-                _SESSION_CACHE["token_data"] = token_data
-                _SESSION_CACHE["token_expiry"] = now + max(60, expires_in - 300)
+                self.cache["token_data"] = token_data
+                self.cache["token_expiry"] = now + max(60, expires_in - 300)
                 return token_data
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")
@@ -95,11 +106,49 @@ class EdumarshalClient:
             "Accept": "application/json"
         }
 
+    def get_student_profile(self, force: bool = False) -> Dict[str, Any]:
+        """Fetch official student profile details from Edumarshal."""
+        now = time.time()
+        if not force and self.cache.get("profile_data") and now < self.cache.get("profile_expiry", 0):
+            return self.cache["profile_data"]
+
+        headers = self._get_headers()
+        token_data = self.authenticate()
+        user_id = token_data["X-UserId"]
+
+        url = f"{self.base_url}/api/User/GetByUserId/{user_id}?y=0"
+        req = urllib.request.Request(url, headers=headers)
+
+        with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        first_name = (data.get("firstName") or "").strip()
+        last_name = (data.get("lastName") or "").strip()
+        full_name = f"{first_name} {last_name}".strip() or data.get("fullName") or first_name
+
+        profile = {
+            "user_id": user_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "full_name": full_name,
+            "roll_number": (data.get("rollNumber") or data.get("admissionNumber") or self.username).strip(),
+            "admission_number": (data.get("admissionNumber") or "").strip(),
+            "email": (data.get("email") or "").strip(),
+            "semester": data.get("semester") or 3,
+            "course_name": data.get("courseName"),
+            "branch_name": data.get("branchName"),
+            "context_id": token_data.get("X-ContextId")
+        }
+
+        self.cache["profile_data"] = profile
+        self.cache["profile_expiry"] = now + 1800
+        return profile
+
     def get_attendance(self, force: bool = False) -> Dict[str, Any]:
         """Fetch subject-wise attendance and overall aggregate statistics."""
         now = time.time()
-        if not force and _SESSION_CACHE["attendance_data"] and now < _SESSION_CACHE["attendance_expiry"]:
-            return _SESSION_CACHE["attendance_data"]
+        if not force and self.cache.get("attendance_data") and now < self.cache.get("attendance_expiry", 0):
+            return self.cache["attendance_data"]
 
         headers = self._get_headers()
         token_data = self.authenticate()
@@ -159,15 +208,108 @@ class EdumarshalClient:
         }
 
         # Cache for 15 minutes
-        _SESSION_CACHE["attendance_data"] = result
-        _SESSION_CACHE["attendance_expiry"] = now + 900
+        self.cache["attendance_data"] = result
+        self.cache["attendance_expiry"] = now + 900
+        return result
+
+    def get_datewise_attendance(self, force: bool = False) -> Dict[str, Any]:
+        """Fetch itemized date-by-date attendance logs for the interactive calendar."""
+        now = time.time()
+        if not force and self.cache.get("calendar_data") and now < self.cache.get("calendar_expiry", 0):
+            return self.cache["calendar_data"]
+
+        headers = self._get_headers()
+        token_data = self.authenticate()
+        user_id = token_data["X-UserId"]
+
+        url = f"{self.base_url}/api/SubjectAttendance/GetPresentAbsentStudent?isDateWise=true&termId=0&userId={user_id}&y=0"
+        req = urllib.request.Request(url, headers=headers)
+
+        with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        att_list = data.get("attendanceData") or []
+        dates_map = {}
+
+        for a in att_list:
+            d_raw = a.get("absentDate")
+            if not d_raw:
+                continue
+            d_str = d_raw.split("T")[0]
+            try:
+                dt = datetime.datetime.fromisoformat(d_str)
+            except Exception:
+                continue
+
+            lbl = (a.get("attendanceLable") or "--").strip()
+            if lbl == "--":
+                continue
+
+            is_absent = bool(a.get("isAbsent") or lbl == "A")
+            sub_name = (a.get("subjectName") or "Academic Lecture").strip()
+
+            if d_str not in dates_map:
+                dates_map[d_str] = {
+                    "date": d_str,
+                    "year": dt.year,
+                    "month": dt.month,
+                    "day": dt.day,
+                    "weekday": dt.strftime("%A"),
+                    "present_count": 0,
+                    "absent_count": 0,
+                    "total_lectures": 0,
+                    "lectures": []
+                }
+
+            entry = dates_map[d_str]
+            entry["total_lectures"] += 1
+            if is_absent:
+                entry["absent_count"] += 1
+                status = "A"
+            else:
+                entry["present_count"] += 1
+                status = "P"
+
+            entry["lectures"].append({
+                "subject": sub_name,
+                "status": status,
+                "is_absent": is_absent
+            })
+
+        # Calculate day statuses
+        for d_str, v in dates_map.items():
+            tot = v["total_lectures"]
+            pres = v["present_count"]
+            if tot == 0:
+                v["status"] = "OFF"
+                v["percentage"] = 0.0
+            elif pres == tot:
+                v["status"] = "FULL"
+                v["percentage"] = 100.0
+            elif pres == 0:
+                v["status"] = "ABSENT"
+                v["percentage"] = 0.0
+            else:
+                v["status"] = "PARTIAL"
+                v["percentage"] = round((pres / tot) * 100.0, 1)
+
+        result = {
+            "status": "success",
+            "student_roll": self.username,
+            "total_days_logged": len(dates_map),
+            "dates": dates_map,
+            "updated_at": datetime.datetime.now().isoformat()
+        }
+
+        self.cache["calendar_data"] = result
+        self.cache["calendar_expiry"] = now + 900
         return result
 
     def get_circulars(self, force: bool = False) -> List[Dict[str, Any]]:
         """Fetch all official MAIT circulars, notices of the day, and attachments."""
         now = time.time()
-        if not force and _SESSION_CACHE["circulars_data"] and now < _SESSION_CACHE["circulars_expiry"]:
-            return _SESSION_CACHE["circulars_data"]
+        if not force and self.cache.get("circulars_data") and now < self.cache.get("circulars_expiry", 0):
+            return self.cache["circulars_data"]
 
         headers = self._get_headers()
         token_data = self.authenticate()
@@ -211,8 +353,8 @@ class EdumarshalClient:
             reverse=True
         )
 
-        _SESSION_CACHE["circulars_data"] = sorted_circulars
-        _SESSION_CACHE["circulars_expiry"] = now + 900
+        self.cache["circulars_data"] = sorted_circulars
+        self.cache["circulars_expiry"] = now + 900
         return sorted_circulars
 
     def _normalize_circular(self, raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -279,11 +421,91 @@ class EdumarshalClient:
         }
 
 
-# Global singleton instance
+def verify_and_extract_identity(
+    username: str,
+    password: str,
+    student_name: Optional[str] = None,
+    student_email: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Authenticate with Edumarshal, fetch official student profile,
+    and verify that the student name matches the logged-in Google account name.
+    Returns verified enrollment number, name, and semester.
+    """
+    client = EdumarshalClient(username=username, password=password)
+    try:
+        token_data = client.authenticate(force=True)
+    except Exception as e:
+        return {
+            "verified": False,
+            "error_type": "AUTH_FAILED",
+            "reason": f"Edumarshal login failed: {str(e)}"
+        }
+
+    try:
+        profile = client.get_student_profile(force=True)
+    except Exception as e:
+        return {
+            "verified": False,
+            "error_type": "PROFILE_FETCH_FAILED",
+            "reason": f"Failed to retrieve student profile from Edumarshal: {str(e)}"
+        }
+
+    # Name matching verification
+    if student_name:
+        def tokenize(s: str) -> set:
+            return set(re.findall(r"[a-z0-9]+", (s or "").lower()))
+
+        u_tokens = tokenize(student_name)
+        e_first = (profile.get("first_name") or "").lower().strip()
+        e_last = (profile.get("last_name") or "").lower().strip()
+        e_full = (profile.get("full_name") or "").lower().strip()
+        e_tokens = tokenize(e_full) | tokenize(e_first) | tokenize(e_last)
+
+        matched_tokens = {t for t in (u_tokens & e_tokens) if len(t) >= 3}
+        email_matched = False
+        if student_email and profile.get("email"):
+            email_matched = student_email.lower().strip() == profile.get("email", "").lower().strip()
+
+        if not matched_tokens and not email_matched:
+            return {
+                "verified": False,
+                "error_type": "NAME_MISMATCH",
+                "reason": (
+                    f"Identity verification failed: The Edumarshal account belongs to '{profile.get('full_name', 'Unknown')}', "
+                    f"which does not match your signed-in name ('{student_name}'). "
+                    f"Please enter your own personal Edumarshal credentials."
+                ),
+                "edumarshal_name": profile.get("full_name"),
+                "signed_in_name": student_name
+            }
+
+    roll_number = profile.get("roll_number") or profile.get("admission_number") or username
+    return {
+        "verified": True,
+        "roll_number": roll_number,
+        "admission_number": profile.get("admission_number") or roll_number,
+        "first_name": profile.get("first_name"),
+        "full_name": profile.get("full_name"),
+        "email": profile.get("email"),
+        "semester": profile.get("semester") or 3,
+        "course_name": profile.get("course_name"),
+        "branch_name": profile.get("branch_name"),
+        "user_id": token_data.get("X-UserId"),
+        "context_id": token_data.get("X-ContextId")
+    }
+
+
+# Global singleton instance for public readouts
 default_edumarshal_client = EdumarshalClient()
 
-def get_mait_attendance(force: bool = False) -> Dict[str, Any]:
-    return default_edumarshal_client.get_attendance(force=force)
+def get_mait_attendance(force: bool = False, username: Optional[str] = None, password: Optional[str] = None) -> Dict[str, Any]:
+    client = EdumarshalClient(username, password) if username and password else default_edumarshal_client
+    return client.get_attendance(force=force)
+
+def get_mait_calendar(force: bool = False, username: Optional[str] = None, password: Optional[str] = None) -> Dict[str, Any]:
+    client = EdumarshalClient(username, password) if username and password else default_edumarshal_client
+    return client.get_datewise_attendance(force=force)
 
 def get_mait_circulars(force: bool = False) -> List[Dict[str, Any]]:
     return default_edumarshal_client.get_circulars(force=force)
@@ -291,20 +513,12 @@ def get_mait_circulars(force: bool = False) -> List[Dict[str, Any]]:
 
 # Quick CLI test execution
 if __name__ == "__main__":
-    client = EdumarshalClient()
-    print("[*] Testing Edumarshal Authentication...")
-    tok = client.authenticate()
-    print(f"[+] Authenticated! UserId={tok.get('X-UserId')}, ContextId={tok.get('X-ContextId')}")
+    print("[*] Running Verification Test with Tanmay Jain...")
+    res = verify_and_extract_identity("08414802725", "mait@2029", student_name="Tanmay Jain")
+    print("[+] Verification Result:", res["verified"], "Roll:", res.get("roll_number"), "Name:", res.get("full_name"))
 
-    print("\n[*] Fetching Attendance...")
-    att = client.get_attendance()
-    print(f"[+] Attendance: {att['overall']['percentage']}% ({att['overall']['present']}/{att['overall']['total']})")
-    for s in att["subjects"]:
-        print(f"    - {s['name']} ({s['code']}): {s['percentage']}% ({s['present']}/{s['total']}) [{s['status']}]")
-
-    print("\n[*] Fetching MAIT Circulars...")
-    circs = client.get_circulars()
-    print(f"[+] Fetched {len(circs)} circulars:")
-    for c in circs[:5]:
-        att_str = f" [Attachment: {c['attachments'][0]['name']}]" if c['has_attachment'] else ""
-        print(f"    - [{c['date']}] {c['title']}{att_str}")
+    print("\n[*] Testing Date-wise Attendance Calendar...")
+    cal = get_mait_calendar()
+    print(f"[+] Total days in calendar: {cal['total_days_logged']}")
+    sample_day = list(cal["dates"].values())[0]
+    print(f"Sample Day [{sample_day['date']}]: Status={sample_day['status']}, Lectures={len(sample_day['lectures'])}")
