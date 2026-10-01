@@ -49,7 +49,10 @@ from campusiq_examweb import (
 )
 
 PORT = int(os.environ.get("PORT", 5000))
-N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
+N8N_WEBHOOK_URL = os.environ.get(
+    "N8N_WEBHOOK_URL",
+    "https://n8n-tanmay.onrender.com/webhook/campusiq-notices"
+)
 BUNDLED_VAULT_DIR = os.path.join(PROJECT_DIR, "assets", "vault")
 ACADEMIC_DIR = os.environ.get("ACADEMIC_DIR", BUNDLED_VAULT_DIR)
 SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
@@ -375,16 +378,17 @@ def get_cached_notices() -> List[Dict[str, Any]]:
         print(f"[!] Warning fetching MAIT circulars: {e}", file=sys.stderr)
 
     # 2. Try Live n8n Webhook for IPU Notices
-    try:
-        req = urllib.request.Request(N8N_WEBHOOK_URL, headers=headers)
-        with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-            notices = payload.get("notices", [])
-            if notices:
-                enriched = [enrich_notice(dict(n)) for n in notices]
-                all_notices.extend(enriched)
-    except Exception as e:
-        print(f"[!] Info: n8n notice webhook: {e}", file=sys.stderr)
+    if N8N_WEBHOOK_URL:
+        try:
+            req = urllib.request.Request(N8N_WEBHOOK_URL, headers=headers)
+            with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+                notices = payload.get("notices", [])
+                if notices:
+                    enriched = [enrich_notice(dict(n)) for n in notices]
+                    all_notices.extend(enriched)
+        except Exception as e:
+            print(f"[!] Info: n8n notice webhook: {e}", file=sys.stderr)
 
     # 3. Direct Scrape from IPU Exam Notices (ipu.ac.in/exam_notices.php)
     try:

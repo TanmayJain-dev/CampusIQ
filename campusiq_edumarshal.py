@@ -19,10 +19,11 @@ import urllib.request
 import urllib.parse
 from typing import Dict, List, Optional, Any, Tuple
 
-DEFAULT_USERNAME = os.environ.get("EDUMARSHAL_USERNAME", "")
-DEFAULT_PASSWORD = os.environ.get("EDUMARSHAL_PASSWORD", "")
+DEFAULT_USERNAME = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
+DEFAULT_PASSWORD = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
 EDUMARSHAL_BASE = "https://app.edumarshal.com"
 CLOUDFRONT_BASE = "https://dnhxw4vnj977w.cloudfront.net"
+CIRCULARS_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "circulars_cache.json")
 
 # Cache token and data in memory with TTL per username
 _SESSION_CACHE = {}
@@ -311,11 +312,23 @@ class EdumarshalClient:
         if not force and self.cache.get("circulars_data") and now < self.cache.get("circulars_expiry", 0):
             return self.cache["circulars_data"]
 
-        headers = self._get_headers()
-        token_data = self.authenticate()
-        org_id = token_data["X-ContextId"]
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            headers = self._get_headers()
+            token_data = self.authenticate()
+            org_id = token_data["X-ContextId"]
+        except Exception as e:
+            print(f"[!] Warning authenticating for Edumarshal circulars: {e}", file=sys.stderr)
+            if os.path.exists(CIRCULARS_CACHE_FILE):
+                try:
+                    with open(CIRCULARS_CACHE_FILE, "r", encoding="utf-8") as f:
+                        cached = json.load(f)
+                        if cached:
+                            return cached
+                except Exception:
+                    pass
+            return []
 
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
         circulars_map = {}
 
         # 1. Fetch Mode 0 notices (General Notice Board)
@@ -353,8 +366,26 @@ class EdumarshalClient:
             reverse=True
         )
 
-        self.cache["circulars_data"] = sorted_circulars
-        self.cache["circulars_expiry"] = now + 900
+        if sorted_circulars:
+            self.cache["circulars_data"] = sorted_circulars
+            self.cache["circulars_expiry"] = now + 900
+            try:
+                os.makedirs(os.path.dirname(CIRCULARS_CACHE_FILE), exist_ok=True)
+                with open(CIRCULARS_CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(sorted_circulars, f, indent=2)
+            except Exception as e:
+                print(f"[!] Warning writing circulars cache: {e}", file=sys.stderr)
+            return sorted_circulars
+
+        if os.path.exists(CIRCULARS_CACHE_FILE):
+            try:
+                with open(CIRCULARS_CACHE_FILE, "r", encoding="utf-8") as f:
+                    cached = json.load(f)
+                    if cached:
+                        return cached
+            except Exception:
+                pass
+
         return sorted_circulars
 
     def _normalize_circular(self, raw: Dict[str, Any]) -> Dict[str, Any]:

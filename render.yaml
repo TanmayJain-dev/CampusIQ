@@ -10,3 +10,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: N8N_WEBHOOK_URL
+        value: https://n8n-tanmay.onrender.com/webhook/campusiq-notices
+      - key: EDUMARSHAL_USERNAME
+        value: 08414802725
+      - key: EDUMARSHAL_PASSWORD
+        value: mait@2029
+

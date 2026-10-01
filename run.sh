@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
 export PORT="${PORT:-5000}"
-export N8N_WEBHOOK_URL="${N8N_WEBHOOK_URL:-}"
+export N8N_WEBHOOK_URL="${N8N_WEBHOOK_URL:-https://n8n-tanmay.onrender.com/webhook/campusiq-notices}"
 export ACADEMIC_DIR="${ACADEMIC_DIR:-$DIR/assets/vault}"
 
 echo "================================================================================"
