@@ -388,3 +388,52 @@ body {
   }
 }
 
+/* ==========================================================================
+   Mobile Touch & Viewport Optimization (Phones & Tablets)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Prevent horizontal rubberbanding on mobile */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Smooth momentum scrolling for pill bars and tables */
+  .scrollbar-none,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Accessible touch targets & tap response */
+  button, a, input, select, .tab-btn, .mobile-tab-btn {
+    touch-action: manipulation;
+  }
+
+  /* Bottom sheet modal styling for mobile screens */
+  .modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    margin: 0;
+    max-height: 94vh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* Fixed bottom bar padding helper */
+  .pb-safe {
+    padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+  }
+}
+
+

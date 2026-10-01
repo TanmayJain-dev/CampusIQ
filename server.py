@@ -53,9 +53,10 @@ N8N_WEBHOOK_URL = os.environ.get(
     "N8N_WEBHOOK_URL",
     "https://n8n-tanmay.onrender.com/webhook/campusiq-notices"
 )
+BUNDLED_VAULT_DIR = os.path.join(PROJECT_DIR, "assets", "vault")
 ACADEMIC_DIR = os.environ.get(
     "ACADEMIC_DIR",
-    "/home/tanmay/Workspaces/Academics/College"
+    BUNDLED_VAULT_DIR if os.path.exists(BUNDLED_VAULT_DIR) else "/home/tanmay/Workspaces/Academics/College"
 )
 SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
 
@@ -737,8 +738,38 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         filename = os.path.basename(rel_path) if rel_path else f"document_{file_id}.pdf"
         content = None
 
-        # 1. Try local disk first (when running in local development or if mounted)
-        if rel_path:
+        # 1. Try bundled repository assets first (guaranteed 100% availability in cloud/Render & local)
+        if rel_path and os.path.exists(BUNDLED_VAULT_DIR):
+            bundled_path = os.path.abspath(os.path.join(BUNDLED_VAULT_DIR, rel_path))
+            if bundled_path.startswith(os.path.abspath(BUNDLED_VAULT_DIR)) and os.path.exists(bundled_path):
+                try:
+                    with open(bundled_path, "rb") as f:
+                        content = f.read()
+                    filename = os.path.basename(bundled_path)
+                except Exception as e:
+                    print(f"[!] Error reading bundled file {bundled_path}: {e}", file=sys.stderr)
+
+            # Check normalized or basename match in bundled vault
+            if content is None:
+                target_base = os.path.basename(rel_path).lower()
+                norm_target = rel_path.replace("\\", "/").strip("/").lower()
+                for root, _, files in os.walk(BUNDLED_VAULT_DIR):
+                    for fname in files:
+                        cur_full = os.path.join(root, fname)
+                        cur_rel = os.path.relpath(cur_full, BUNDLED_VAULT_DIR).replace("\\", "/").strip("/").lower()
+                        if cur_rel == norm_target or fname.lower() == target_base:
+                            try:
+                                with open(cur_full, "rb") as f:
+                                    content = f.read()
+                                filename = fname
+                                break
+                            except Exception:
+                                pass
+                    if content is not None:
+                        break
+
+        # 2. Try external academic directory (when running in local development or if mounted)
+        if content is None and rel_path and ACADEMIC_DIR and os.path.exists(ACADEMIC_DIR):
             abs_path = os.path.abspath(os.path.join(ACADEMIC_DIR, rel_path))
             if abs_path.startswith(os.path.abspath(ACADEMIC_DIR)) and os.path.exists(abs_path):
                 try:

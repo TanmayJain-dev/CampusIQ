@@ -60,33 +60,55 @@ def fetch_folder_items(folder_id: str) -> List[Tuple[str, str, bool]]:
 def crawl_drive_tree(root_folder_id: str, current_path: str = "") -> Dict[str, str]:
     """
     Recursively crawls the Google Drive folder tree.
-    Returns mapping: { "relative/path/to/file.pdf": "file_id", ... }
+    STRICT SECURITY INVARIANT: Only indexes verified typeset question papers in CampusIQ vault.
+    NEVER indexes personal folders or non-academic files.
     """
     file_map: Dict[str, str] = {}
-    print(f"[*] Crawling: {current_path or 'ROOT'} (ID: {root_folder_id})")
+    print(f"[*] Crawling CampusIQ Vault: {current_path or 'ROOT'} (ID: {root_folder_id})")
     
     items = fetch_folder_items(root_folder_id)
     time.sleep(0.3)  # Gentle crawl rate
     
     for item_id, item_name, is_folder in items:
+        # Strict personal folder exclusion
+        lower_name = item_name.lower()
+        if any(bad in lower_name for bad in ["reliance", "personal", "document", "certificate", "photo"]):
+            print(f"  ⛔ Skipping non-vault/personal folder: {item_name}")
+            continue
+
         sub_path = f"{current_path}/{item_name}".strip("/") if current_path else item_name
         if is_folder:
             sub_files = crawl_drive_tree(item_id, sub_path)
             file_map.update(sub_files)
         else:
-            file_map[sub_path] = item_id
-            print(f"  📄 [PDF] {sub_path} -> {item_id}")
+            # ONLY index verified typeset question papers
+            if "typeset" in lower_name and lower_name.endswith(".pdf"):
+                file_map[sub_path] = item_id
+                print(f"  📄 [Typeset Paper] {sub_path} -> {item_id}")
+            else:
+                print(f"  ⏩ Skipping non-typeset resource: {item_name}")
             
     return file_map
 
 def main():
-    root_id = "1xL3cYaVt8YdV1gvYgtVJJ-_6D7oJhXBN"
+    root_id = os.environ.get("CAMPUSIQ_DRIVE_FOLDER_ID", "").strip()
     if len(sys.argv) > 1:
-        root_id = sys.argv[1].split("/")[-1].split("?")[0]
+        root_id = sys.argv[1].split("/")[-1].split("?")[0].strip()
         
-    print(f"🚀 Starting Google Drive crawl for root: {root_id}")
+    if not root_id:
+        print("=" * 70)
+        print("🏛️ CampusIQ Dedicated Google Drive Vault Sync")
+        print("=" * 70)
+        print("CampusIQ is isolated from personal Google Drive folders.")
+        print("Please provide the Folder ID or URL of your dedicated 'CampusIQ' folder:")
+        print("Usage: python3 sync_drive_vault.py <CampusIQ_Google_Drive_Folder_ID>")
+        print("Example: python3 sync_drive_vault.py 1aBcDeFgHiJkLmNoPqRsTuVwXyZ")
+        print("=" * 70)
+        return
+        
+    print(f"🚀 Starting CampusIQ Google Drive crawl for dedicated root: {root_id}")
     file_map = crawl_drive_tree(root_id)
-    print(f"✅ Total files discovered in Google Drive: {len(file_map)}")
+    print(f"✅ Total typeset question papers discovered in Google Drive: {len(file_map)}")
 
     # Load existing map if any
     existing = {}

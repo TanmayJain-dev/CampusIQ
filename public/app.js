@@ -90,6 +90,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function switchTab(tabId) {
   state.activeTab = tabId;
+  if (tabId === "resources") {
+    if (!state.vaultTree) {
+      fetchResourcesTree();
+    } else {
+      renderVaultHierarchy();
+    }
+  }
   if (tabId === "results" && !state.examWebSession && !state.examWebResult) {
     initExamWebSession();
   }
@@ -677,11 +684,11 @@ function renderResourceCardHtml(r) {
       </div>
 
       <div class="flex items-center gap-2 pt-1 border-t border-white/5 text-xs">
-        <button onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')" class="flex-1 py-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all">
+        <button onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')" class="flex-1 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95">
           <i data-lucide="eye" class="w-3.5 h-3.5"></i>
           <span>Preview</span>
         </button>
-        <a href="/api/resources/view?path=${encodedPath}" download="${r.filename || 'document.pdf'}" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 transition-all" title="Direct Download">
+        <a href="/api/resources/view?path=${encodedPath}" download="${r.filename || 'document.pdf'}" class="px-3.5 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95" title="Direct Download">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
         </a>
       </div>
@@ -765,11 +772,11 @@ function handleUniversalResourceSearch() {
             </div>
 
             <div class="flex items-center gap-2 pt-1 border-t border-white/5 text-xs">
-              <button onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')" class="flex-1 py-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all">
+              <button onclick="openPdfPreview('${safeTitle}', '${r.relative_path}')" class="flex-1 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                 <span>Preview</span>
               </button>
-              <a href="/api/resources/view?path=${encodedPath}" download="${r.filename || 'document.pdf'}" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 transition-all" title="Direct Download">
+              <a href="/api/resources/view?path=${encodedPath}" download="${r.filename || 'document.pdf'}" class="px-3.5 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95" title="Direct Download">
                 <i data-lucide="download" class="w-3.5 h-3.5"></i>
               </a>
             </div>
@@ -801,6 +808,8 @@ function openPdfPreview(title, relPath) {
   const streamUrl = `/api/resources/view?path=${encodedPath}`;
   document.getElementById("pdf-iframe").src = streamUrl;
   document.getElementById("pdf-download-btn").href = streamUrl;
+  const extBtn = document.getElementById("pdf-external-btn");
+  if (extBtn) extBtn.href = streamUrl;
   document.getElementById("pdf-modal").classList.add("open");
 }
 

@@ -38,3 +38,7 @@ data/auth_config.json
 *secret*.json
 client_secret*.json
 
+# Dedicated Google Drive local staging folder
+CampusIQ_Drive_Vault/
+
+
