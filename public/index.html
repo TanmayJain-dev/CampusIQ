@@ -68,27 +68,31 @@
 
       <!-- Center Tabs -->
       <nav class="hidden md:flex items-center gap-1 bg-zinc-900/70 p-1 rounded-xl border border-white/5 backdrop-blur-md">
-        <button onclick="switchTab('notices')" id="nav-notices" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 shadow-[0_0_12px_rgba(59,130,246,0.3)] transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('notices')" id="nav-notices" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 shadow-[0_0_12px_rgba(59,130,246,0.3)] transition-all flex items-center gap-1.5">
           <i data-lucide="bell" class="w-3.5 h-3.5"></i>
           <span>Live Notices</span>
         </button>
-        <button onclick="switchTab('resources')" id="nav-resources" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('resources')" id="nav-resources" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="book-marked" class="w-3.5 h-3.5"></i>
           <span>Study Vault</span>
         </button>
-        <button onclick="switchTab('results')" id="nav-results" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('attendance')" id="nav-attendance" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Attendance</span>
+        </button>
+        <button onclick="switchTab('results')" id="nav-results" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
           <span>Results & Ranks</span>
         </button>
-        <button onclick="switchTab('community')" id="nav-community" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('community')" id="nav-community" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="users-round" class="w-3.5 h-3.5 text-indigo-400"></i>
           <span>Community</span>
         </button>
-        <button onclick="switchTab('admin')" id="nav-admin" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('admin')" id="nav-admin" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400"></i>
           <span>Faculty Roster</span>
         </button>
-        <button onclick="switchTab('atlas')" id="nav-atlas" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
+        <button onclick="switchTab('atlas')" id="nav-atlas" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
           <span>ATLAS Hub</span>
         </button>
@@ -121,7 +125,7 @@
   </header>
 
   <!-- Mobile Fixed Bottom Navigation Dock -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090b]/95 backdrop-blur-xl border-t border-white/10 px-2 py-2 flex items-center justify-around pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-[0_-8px_25px_rgba(0,0,0,0.8)]">
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090b]/95 backdrop-blur-xl border-t border-white/10 px-1 py-2 flex items-center justify-around pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-[0_-8px_25px_rgba(0,0,0,0.8)]">
     <button onclick="switchTab('notices')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-blue-400 active:scale-95 transition-all" id="m-nav-notices">
       <i data-lucide="bell" class="w-4 h-4"></i>
       <span class="text-[10px] font-medium tracking-tight">Notices</span>
@@ -129,6 +133,10 @@
     <button onclick="switchTab('resources')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-resources">
       <i data-lucide="book-marked" class="w-4 h-4"></i>
       <span class="text-[10px] font-medium tracking-tight">Vault</span>
+    </button>
+    <button onclick="switchTab('attendance')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-attendance">
+      <i data-lucide="calendar-check" class="w-4 h-4"></i>
+      <span class="text-[10px] font-medium tracking-tight">Attendance</span>
     </button>
     <button onclick="switchTab('results')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-results">
       <i data-lucide="graduation-cap" class="w-4 h-4"></i>
@@ -197,6 +205,7 @@
           <!-- Category Pills -->
           <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none text-xs">
             <button onclick="setNoticeCategory('')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium whitespace-nowrap transition-all" data-cat="">All Streams</button>
+            <button onclick="setNoticeCategory('MAIT')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all flex items-center gap-1.5" data-cat="MAIT"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>MAIT Circulars</button>
             <button onclick="setNoticeCategory('Examinations')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Examinations">Datesheets & Exams</button>
             <button onclick="setNoticeCategory('Results')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Results">Results</button>
             <button onclick="setNoticeCategory('Fees')" class="notice-cat-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200 whitespace-nowrap transition-all" data-cat="Fees">Fees & Accounts</button>
@@ -449,6 +458,86 @@
           <!-- Rendered dynamically -->
         </div>
 
+      </div>
+
+    </section>
+
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: LIVE EDUMARSHAL ATTENDANCE RADAR -->
+    <!-- ========================================================================= -->
+    <section id="tab-attendance" class="tab-pane hidden space-y-6">
+      
+      <!-- Top Alert / Metric Banner -->
+      <div class="p-6 rounded-2xl glass-card relative overflow-hidden border border-white/10">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium mb-3">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              Live Edumarshal Sync Active
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <span>Attendance Radar</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-md bg-zinc-800 text-zinc-300 font-mono font-normal border border-white/10">MAIT ERP</span>
+            </h1>
+            <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
+              Live automated subject-wise attendance tracking, statutory 75% bunk safety margins, and lecture logs synced directly with the Edumarshal mobile cloud backend.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center min-w-[90px]">
+              <span id="att-overall-pct" class="text-xl font-bold text-emerald-400">94.1%</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Overall Aggregate</span>
+            </div>
+            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center min-w-[90px]">
+              <span id="att-bunk-margin" class="text-xl font-bold text-blue-400">+39</span>
+              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Bunk Buffer</span>
+            </div>
+            <button onclick="fetchAttendance(true)" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition-all flex items-center gap-1.5" title="Force Sync from Edumarshal">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span class="text-xs font-medium hidden sm:inline">Sync</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Status Chips -->
+        <div class="mt-6 pt-5 border-t border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+            <span class="text-zinc-500 block text-[11px]">Enrolled Student</span>
+            <span class="font-semibold text-white font-mono mt-0.5 block">08414802725 (Tanmay)</span>
+          </div>
+          <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+            <span class="text-zinc-500 block text-[11px]">Total Lectures</span>
+            <span id="att-lectures-stat" class="font-semibold text-white font-mono mt-0.5 block">144 / 153 Attended</span>
+          </div>
+          <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+            <span class="text-zinc-500 block text-[11px]">Classes Missed</span>
+            <span id="att-missed-stat" class="font-semibold text-amber-400 font-mono mt-0.5 block">9 Lectures</span>
+          </div>
+          <div class="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
+            <span class="text-zinc-500 block text-[11px]">Eligibility Status</span>
+            <span id="att-eligibility-stat" class="font-semibold text-emerald-400 font-mono mt-0.5 block">Eligible (≥ 75%)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject-wise Attendance Grid -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+            <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i>
+            <span>Course & Subject Breakdown</span>
+          </h2>
+          <span id="att-subjects-count" class="text-xs text-zinc-500 font-mono">9 Enrolled Courses</span>
+        </div>
+
+        <div id="attendance-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Rendered dynamically -->
+          <div class="col-span-full py-16 text-center text-zinc-500">
+            <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400"></i>
+            <p class="text-xs">Connecting to Edumarshal cloud engine...</p>
+          </div>
+        </div>
       </div>
 
     </section>

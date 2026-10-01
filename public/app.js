@@ -106,6 +106,9 @@ function switchTab(tabId) {
   if (tabId === "community") {
     initCommunityHub();
   }
+  if (tabId === "attendance") {
+    fetchAttendance();
+  }
 
 
   // Toggle nav buttons
@@ -254,8 +257,17 @@ function filterNotices() {
   const cat = state.noticeCategory.toLowerCase();
 
   const filtered = state.notices.filter(n => {
-    const matchQuery = !query || n.title.toLowerCase().includes(query) || (n.category && n.category.toLowerCase().includes(query));
-    const matchCat = !cat || (n.category && n.category.toLowerCase().includes(cat));
+    const matchQuery = !query ||
+      n.title.toLowerCase().includes(query) ||
+      (n.category && n.category.toLowerCase().includes(query)) ||
+      (n.source && n.source.toLowerCase().includes(query));
+    
+    let matchCat = true;
+    if (cat === "mait") {
+      matchCat = (n.source && n.source.toLowerCase() === "mait") || (n.college && n.college.toLowerCase().includes("mait"));
+    } else if (cat) {
+      matchCat = n.category && n.category.toLowerCase().includes(cat);
+    }
     return matchQuery && matchCat;
   });
 
@@ -1398,6 +1410,193 @@ function resetExamWebSession() {
   container.classList.add("hidden");
   loginCard.classList.remove("hidden");
   refreshExamWebCaptcha();
+}
+
+
+// =============================================================================
+// TAB: EDUMARSHAL ATTENDANCE RADAR
+// =============================================================================
+
+async function fetchAttendance(force = false) {
+  const grid = document.getElementById("attendance-grid");
+  if (!grid) return;
+
+  if (state.attendanceData && !force) {
+    renderAttendance(state.attendanceData);
+    return;
+  }
+
+  state.isAttendanceLoading = true;
+  grid.innerHTML = `
+    <div class="col-span-full py-16 text-center text-zinc-500">
+      <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400"></i>
+      <p class="text-xs">Authenticating with Edumarshal Cloud & syncing attendance logs...</p>
+    </div>
+  `;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`/api/edumarshal/attendance?force=${force}`);
+    const data = await res.json();
+    if (data.status === "error") {
+      throw new Error(data.message || "Failed to load attendance");
+    }
+
+    state.attendanceData = data;
+    state.isAttendanceLoading = false;
+    renderAttendance(data);
+  } catch (err) {
+    console.error("Attendance fetch error:", err);
+    state.isAttendanceLoading = false;
+    grid.innerHTML = `
+      <div class="col-span-full p-8 text-center text-red-400 text-xs rounded-2xl glass-card border border-red-500/20">
+        <i data-lucide="alert-triangle" class="w-6 h-6 mx-auto mb-2 text-red-400"></i>
+        <p class="font-medium">Failed to fetch Edumarshal attendance.</p>
+        <p class="text-zinc-500 mt-1">${err.message}</p>
+        <button onclick="fetchAttendance(true)" class="mt-4 px-3.5 py-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all font-mono">
+          Retry Sync
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+  }
+}
+
+function renderAttendance(data) {
+  const overall = data.overall || {};
+  const pct = overall.percentage != null ? overall.percentage : 0;
+  const present = overall.present != null ? overall.present : 0;
+  const total = overall.total != null ? overall.total : 0;
+  const missed = overall.absent != null ? overall.absent : (total - present);
+
+  let bunkBuffer = 0;
+  let statusText = "Eligible (≥ 75%)";
+  let statusClass = "text-emerald-400";
+  let bufferText = "+0";
+
+  if (pct >= 75.0) {
+    bunkBuffer = Math.floor(present / 0.75) - total;
+    bufferText = `+${Math.max(0, bunkBuffer)}`;
+    statusText = "Safe & Eligible (≥ 75%)";
+    statusClass = "text-emerald-400";
+  } else {
+    const needed = Math.ceil((0.75 * total - present) / 0.25);
+    bufferText = `-${needed}`;
+    statusText = `Warning: Need ${needed} classes to reach 75%`;
+    statusClass = "text-amber-400";
+  }
+
+  // Update top banner
+  const pctElem = document.getElementById("att-overall-pct");
+  if (pctElem) {
+    pctElem.innerText = `${pct.toFixed(1)}%`;
+    pctElem.className = `text-xl font-bold ${pct >= 75 ? 'text-emerald-400' : 'text-amber-400'}`;
+  }
+
+  const marginElem = document.getElementById("att-bunk-margin");
+  if (marginElem) {
+    marginElem.innerText = bufferText;
+    marginElem.className = `text-xl font-bold ${bunkBuffer >= 0 ? 'text-blue-400' : 'text-red-400'}`;
+  }
+
+  const lectElem = document.getElementById("att-lectures-stat");
+  if (lectElem) lectElem.innerText = `${present} / ${total} Attended`;
+
+  const missedElem = document.getElementById("att-missed-stat");
+  if (missedElem) missedElem.innerText = `${missed} Lectures`;
+
+  const eligElem = document.getElementById("att-eligibility-stat");
+  if (eligElem) {
+    eligElem.innerText = statusText;
+    eligElem.className = `font-semibold font-mono mt-0.5 block ${statusClass}`;
+  }
+
+  const countElem = document.getElementById("att-subjects-count");
+  if (countElem) countElem.innerText = `${data.subjects ? data.subjects.length : 0} Enrolled Courses`;
+
+  const grid = document.getElementById("attendance-grid");
+  if (!grid) return;
+
+  const subjects = data.subjects || [];
+  if (!subjects.length) {
+    grid.innerHTML = `
+      <div class="col-span-full py-16 text-center text-zinc-500">
+        <i data-lucide="calendar-x" class="w-8 h-8 mx-auto mb-2 text-zinc-600"></i>
+        <p class="text-sm">No course records found in this Edumarshal term.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  grid.innerHTML = subjects.map(s => {
+    const sPct = s.percentage != null ? s.percentage : 0;
+    const isLab = s.name.toLowerCase().includes("lab");
+    
+    let badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    let barColor = "bg-gradient-to-r from-emerald-500 to-teal-400";
+    let advice = "";
+
+    if (sPct >= 75.0) {
+      const canMiss = Math.floor(s.present / 0.75) - s.total;
+      badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      barColor = "bg-gradient-to-r from-emerald-500 to-teal-400";
+      advice = canMiss > 0 ? `Can safely miss ${canMiss} more lecture${canMiss > 1 ? 's' : ''}` : `Right on threshold (0 misses left)`;
+    } else if (sPct >= 60.0) {
+      const need = Math.ceil((0.75 * s.total - s.present) / 0.25);
+      badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      barColor = "bg-gradient-to-r from-amber-500 to-yellow-400";
+      advice = `Attend next ${need} class${need > 1 ? 'es' : ''} continuously to reach 75%`;
+    } else {
+      const need = Math.ceil((0.75 * s.total - s.present) / 0.25);
+      badgeClass = "bg-red-500/10 text-red-400 border-red-500/20";
+      barColor = "bg-gradient-to-r from-red-500 to-rose-400";
+      advice = `Critical shortage: Need ${need} class${need > 1 ? 'es' : ''} to reach 75%`;
+    }
+
+    return `
+      <div class="p-5 rounded-2xl glass-card flex flex-col justify-between space-y-4 hover:border-white/15 transition-all">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeClass}">
+              ${s.status.toUpperCase()}
+            </span>
+            <span class="text-xs font-mono font-bold text-white">${sPct}%</span>
+          </div>
+
+          <div>
+            <h3 class="text-sm font-semibold text-white leading-snug line-clamp-2">
+              ${s.name}
+            </h3>
+            <span class="text-[11px] font-mono text-zinc-500 mt-0.5 block">${s.code || 'CORE'} ${isLab ? '• Practical' : '• Theory'}</span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1.5 pt-1">
+            <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-500 ${barColor}" style="width: ${Math.min(100, Math.max(0, sPct))}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+              <span>${s.present} of ${s.total} attended</span>
+              <span class="text-zinc-500">${s.absent} missed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-white/5 text-[11px] text-zinc-400 flex items-center justify-between gap-2">
+          <span class="truncate text-zinc-400 flex items-center gap-1.5">
+            <i data-lucide="info" class="w-3.5 h-3.5 shrink-0 text-zinc-500"></i>
+            <span class="truncate">${advice}</span>
+          </span>
+          <span class="shrink-0 px-2 py-0.5 rounded bg-zinc-900 text-zinc-300 font-mono text-[10px]">
+            Target 75%
+          </span>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  lucide.createIcons();
 }
 
 

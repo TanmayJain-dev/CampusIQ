@@ -380,7 +380,7 @@ def enrich_notice(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_cached_notices() -> List[Dict[str, Any]]:
-    """Fetch notices from Render n8n webhook or direct IPU scrapers with cache & enrichment."""
+    """Fetch notices from Render n8n webhook, direct IPU scrapers, and MAIT Edumarshal API."""
     now = time.time()
     if _NOTICES_CACHE["data"] and (now - _NOTICES_CACHE["last_fetched"] < _NOTICES_CACHE["ttl"]):
         return _NOTICES_CACHE["data"]
@@ -393,7 +393,18 @@ def get_cached_notices() -> List[Dict[str, Any]]:
         "Accept": "application/json, text/html, */*"
     }
 
-    # 1. Try Live n8n Webhook
+    all_notices = []
+
+    # 1. Fetch Live MAIT Edumarshal Circulars
+    try:
+        from campusiq_edumarshal import get_mait_circulars
+        mait_circs = get_mait_circulars()
+        if mait_circs:
+            all_notices.extend(mait_circs)
+    except Exception as e:
+        print(f"[!] Warning fetching MAIT circulars: {e}", file=sys.stderr)
+
+    # 2. Try Live n8n Webhook for IPU Notices
     try:
         req = urllib.request.Request(N8N_WEBHOOK_URL, headers=headers)
         with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
@@ -401,13 +412,11 @@ def get_cached_notices() -> List[Dict[str, Any]]:
             notices = payload.get("notices", [])
             if notices:
                 enriched = [enrich_notice(dict(n)) for n in notices]
-                _NOTICES_CACHE["data"] = enriched
-                _NOTICES_CACHE["last_fetched"] = now
-                return enriched
+                all_notices.extend(enriched)
     except Exception as e:
         print(f"[!] Info: n8n notice webhook: {e}", file=sys.stderr)
 
-    # 2. Direct Scrape from IPU Exam Notices (ipu.ac.in/exam_notices.php)
+    # 3. Direct Scrape from IPU Exam Notices (ipu.ac.in/exam_notices.php)
     try:
         req = urllib.request.Request("https://www.ipu.ac.in/exam_notices.php", headers=headers)
         with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
@@ -436,13 +445,15 @@ def get_cached_notices() -> List[Dict[str, Any]]:
                     "college": "GGSIPU Examination Division"
                 }
                 direct_notices.append(enrich_notice(notice_item))
-            
             if direct_notices:
-                _NOTICES_CACHE["data"] = direct_notices
-                _NOTICES_CACHE["last_fetched"] = now
-                return direct_notices
+                all_notices.extend(direct_notices)
     except Exception as e:
         print(f"[!] Warning: Failed direct IPU notice scraping: {e}", file=sys.stderr)
+
+    if all_notices:
+        _NOTICES_CACHE["data"] = all_notices
+        _NOTICES_CACHE["last_fetched"] = now
+        return all_notices
 
     if _NOTICES_CACHE["data"]:
         return _NOTICES_CACHE["data"]
@@ -552,6 +563,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_notices(params)
         elif path == "/api/notices/proxy":
             self.handle_api_notice_proxy(params)
+        elif path == "/api/edumarshal/attendance":
+            self.handle_api_edumarshal_attendance(params)
+        elif path == "/api/edumarshal/circulars":
+            self.handle_api_edumarshal_circulars(params)
         elif path == "/api/resources":
             self.handle_api_resources(params)
         elif path == "/api/resources/tree":
@@ -1012,6 +1027,26 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             "service": "CampusIQ",
             "timestamp": time.time()
         })
+
+    # Edumarshal Attendance API
+    def handle_api_edumarshal_attendance(self, params: Dict[str, List[str]]):
+        force = params.get("force", ["false"])[0].lower() in ["true", "1"]
+        try:
+            from campusiq_edumarshal import get_mait_attendance
+            data = get_mait_attendance(force=force)
+            self._send_json(data)
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
+
+    # Edumarshal MAIT Circulars API
+    def handle_api_edumarshal_circulars(self, params: Dict[str, List[str]]):
+        force = params.get("force", ["false"])[0].lower() in ["true", "1"]
+        try:
+            from campusiq_edumarshal import get_mait_circulars
+            circs = get_mait_circulars(force=force)
+            self._send_json({"status": "success", "total": len(circs), "circulars": circs})
+        except Exception as e:
+            self._send_json({"status": "error", "message": str(e)}, 500)
 
     # 9. ExamWeb Live Session / Captcha
     def handle_api_examweb_session(self):
