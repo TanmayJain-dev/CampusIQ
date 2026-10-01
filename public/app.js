@@ -4,6 +4,17 @@
  * live REST API integrations, and instant in-browser PDF previews.
  */
 
+// Universal HTML sanitizer for XSS prevention
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Application State
 const state = {
   profile: {
@@ -2269,25 +2280,24 @@ function closeSignInGatekeeper() {
 }
 
 async function fetchCurrentUser() {
-  if (!state.sessionToken) {
-    state.currentUser = null;
-    state.currentStudent = null;
-    renderHeaderAuth(null, null);
-    populateMyProfileUI(null, null);
-    openSignInGatekeeper();
-    return;
-  }
-
   try {
+    const headers = {};
+    if (state.sessionToken) {
+      headers["Authorization"] = `Bearer ${state.sessionToken}`;
+    }
+
     const res = await fetch("/api/auth/me", {
-      headers: {
-        "Authorization": `Bearer ${state.sessionToken}`
-      }
+      credentials: "same-origin",
+      headers: headers
     });
     const data = await res.json();
     if (data.status === "success" && data.is_authenticated && data.user) {
       state.currentUser = data.user;
       state.currentStudent = data.student;
+      if (data.user.session_token) {
+        state.sessionToken = data.user.session_token;
+        localStorage.setItem("campusiq_session_token", data.user.session_token);
+      }
       closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);

@@ -16,4 +16,18 @@ services:
         value: 08414802725
       - key: EDUMARSHAL_PASSWORD
         value: mait@2029
+      - key: DATABASE_URL
+        fromDatabase:
+          name: campusiq-db
+          property: connectionString
+      - key: ENCRYPTION_KEY
+        generateValue: true
+
+databases:
+  - name: campusiq-db
+    plan: free
+    region: singapore
+    databaseName: campusiq
+    user: campusiq
+
 

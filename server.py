@@ -47,6 +47,9 @@ from campusiq_examweb import (
     get_student_by_roll,
     STUDENTS_DB_FILE
 )
+import campusiq_db
+import campusiq_vault
+
 
 PORT = int(os.environ.get("PORT", 5000))
 N8N_WEBHOOK_URL = os.environ.get(
@@ -172,14 +175,21 @@ def verify_password(password: str, salt_hex: str, expected_hash: str) -> bool:
 
 def load_users() -> Dict[str, Any]:
     global _USERS
-    if not os.path.exists(USERS_FILE):
-        _USERS = {}
-        save_users(_USERS)
-        return _USERS
     try:
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            _USERS = json.load(f)
-    except Exception:
+        users = campusiq_db.get_all_users()
+        if users:
+            _USERS = users
+            return _USERS
+    except Exception as e:
+        print(f"[!] Warning loading users from DB: {e}", file=sys.stderr)
+
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                _USERS = json.load(f)
+        except Exception:
+            _USERS = {}
+    else:
         _USERS = {}
     return _USERS
 
@@ -187,29 +197,48 @@ def save_users(users: Dict[str, Any]):
     global _USERS
     _USERS = users
     try:
+        for email, u in users.items():
+            if isinstance(u, dict):
+                campusiq_db.save_user(u)
+    except Exception as e:
+        print(f"[!] Warning persisting users to DB: {e}", file=sys.stderr)
+
+    try:
         os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(users, f, indent=2)
     except Exception as e:
-        print(f"[!] Error saving users: {e}", file=sys.stderr)
+        print(f"[!] Error saving users backup: {e}", file=sys.stderr)
 
 def load_sessions() -> Dict[str, Dict[str, Any]]:
     global _SESSIONS
+    try:
+        sessions = campusiq_db.get_all_sessions()
+        if sessions:
+            _SESSIONS = sessions
+            return _SESSIONS
+    except Exception as e:
+        print(f"[!] Warning loading sessions from DB: {e}", file=sys.stderr)
+
     if os.path.exists(SESSIONS_FILE):
         try:
             with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
                 _SESSIONS = json.load(f)
         except Exception:
             _SESSIONS = {}
+    else:
+        _SESSIONS = {}
     return _SESSIONS
 
 def save_sessions():
+    global _SESSIONS
     try:
         os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
         with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
             json.dump(_SESSIONS, f, indent=2)
     except Exception as e:
-        print(f"[!] Error saving sessions: {e}", file=sys.stderr)
+        pass
+
 
 # Initialize from disk
 load_sessions()
@@ -637,14 +666,29 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
 
-    def _send_json(self, data: Any, status: int = 200):
+    def _get_session_cookie_header(self, token: str, max_age: int = 2592000) -> str:
+        host = self.headers.get("Host", "")
+        proto = self.headers.get("X-Forwarded-Proto", "")
+        is_https = "onrender.com" in host or proto == "https"
+        cookie = f"campusiq_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}"
+        if is_https:
+            cookie += "; Secure"
+        return cookie
+
+    def _send_json(self, data: Any, status: int = 200, extra_headers: Optional[Dict[str, str]] = None):
         try:
             body = json.dumps(data, indent=2).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
@@ -652,14 +696,20 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             print(f"[!] Warning writing JSON response: {e}", file=sys.stderr)
 
-    def _send_html(self, html_content: str, status: int = 200):
+    def _send_html(self, html_content: str, status: int = 200, extra_headers: Optional[Dict[str, str]] = None):
         try:
             body = html_content.encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
@@ -839,10 +889,15 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"error": "Missing 'url' parameter"}, 400)
             return
 
-        # Security: allow proxying university notice domains
-        allowed_domains = ["ipu.ac.in", "mait.ac.in", "ggsipu.ac.in", "onrender.com"]
+        # Strict security: allow proxying only verified university and CDN domains
+        allowed_domains = ["ipu.ac.in", "mait.ac.in", "ggsipu.ac.in", "n8n-tanmay.onrender.com", "edumarshal.com", "cloudfront.net"]
         parsed = urllib.parse.urlparse(url)
-        if not any(parsed.netloc.endswith(d) for d in allowed_domains):
+        if parsed.scheme not in ("http", "https"):
+            self._send_json({"error": "Invalid URL scheme"}, 400)
+            return
+
+        netloc = parsed.netloc.lower().split(":")[0]
+        if not any(netloc == d or netloc.endswith("." + d) for d in allowed_domains):
             self._send_json({"error": "Domain not permitted for proxy"}, 403)
             return
 
@@ -863,6 +918,9 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(content)))
             self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "SAMEORIGIN")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
             self.end_headers()
@@ -1020,7 +1078,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         users = load_users()
         user_record = users.get(user.get("email", ""), {})
         edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
-        has_creds = bool(edu_info.get("username") and edu_info.get("password"))
+        has_creds = bool(edu_info.get("username") and (edu_info.get("password") or edu_info.get("has_vault_secret") or campusiq_db.get_credential(user.get("email", ""))))
         roll = user_record.get("roll_number") or user.get("roll_number")
         is_ver = bool(user_record.get("is_verified") or user.get("is_verified"))
 
@@ -1041,11 +1099,20 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         username = None
         password = None
         if user:
-            users = load_users()
-            user_record = users.get(user.get("email", ""), {})
-            edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
-            username = edu_info.get("username")
-            password = edu_info.get("password")
+            email = user.get("email", "").lower().strip()
+            cred = campusiq_db.get_credential(email)
+            if cred and cred.get("encrypted_payload"):
+                username = cred.get("username")
+                try:
+                    password = campusiq_vault.decrypt_credential(
+                        cred["encrypted_payload"],
+                        context=f"student:{user.get('roll_number')}"
+                    )
+                except Exception as e:
+                    print(f"[!] Error decrypting credentials: {e}", file=sys.stderr)
+            elif user.get("edumarshal", {}).get("password"):
+                username = user["edumarshal"].get("username")
+                password = user["edumarshal"].get("password")
 
         # If no user credentials, check environment without hardcoded fallbacks
         if not (username and password):
@@ -1073,11 +1140,20 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         username = None
         password = None
         if user:
-            users = load_users()
-            user_record = users.get(user.get("email", ""), {})
-            edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
-            username = edu_info.get("username")
-            password = edu_info.get("password")
+            email = user.get("email", "").lower().strip()
+            cred = campusiq_db.get_credential(email)
+            if cred and cred.get("encrypted_payload"):
+                username = cred.get("username")
+                try:
+                    password = campusiq_vault.decrypt_credential(
+                        cred["encrypted_payload"],
+                        context=f"student:{user.get('roll_number')}"
+                    )
+                except Exception as e:
+                    print(f"[!] Error decrypting credentials: {e}", file=sys.stderr)
+            elif user.get("edumarshal", {}).get("password"):
+                username = user["edumarshal"].get("username")
+                password = user["edumarshal"].get("password")
 
         if not (username and password):
             username = os.environ.get("EDUMARSHAL_USERNAME", "")
@@ -1137,23 +1213,31 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             # Check uniqueness: ensure enrollment is not claimed by another verified account
-            users = load_users()
             current_email = user.get("email", "").lower().strip()
-            for other_email, other_u in list(users.items()):
-                if other_email.lower().strip() != current_email and other_u.get("roll_number") == roll:
-                    if other_u.get("is_verified"):
-                        masked = other_email[:3] + "***@" + other_email.split("@")[1] if "@" in other_email else "***"
-                        self._send_json({
-                            "status": "error",
-                            "error_type": "DUPLICATE_ENROLLMENT",
-                            "message": f"Enrollment number {roll} is already registered and verified by another account ({masked}). Each student enrollment number must be unique."
-                        }, 409)
-                        return
-                    else:
-                        # Clear stale unverified claim from legacy account
-                        other_u["roll_number"] = None
+            existing_user_with_roll = campusiq_db.find_user_by_roll(roll)
+            if existing_user_with_roll and existing_user_with_roll.get("email", "").lower() != current_email:
+                if existing_user_with_roll.get("is_verified"):
+                    other_email = existing_user_with_roll.get("email", "")
+                    masked = other_email[:3] + "***@" + other_email.split("@")[1] if "@" in other_email else "***"
+                    self._send_json({
+                        "status": "error",
+                        "error_type": "DUPLICATE_ENROLLMENT",
+                        "message": f"Enrollment number {roll} is already registered and verified by another account ({masked}). Each student enrollment number must be unique."
+                    }, 409)
+                    return
 
-            # Auto-fill and persist verified profile
+            # Encrypt password in AES-256-GCM vault
+            enc_payload = campusiq_vault.encrypt_credential(password, context=f"student:{roll}")
+            campusiq_db.save_credential(
+                email=current_email,
+                username=username,
+                encrypted_payload=enc_payload,
+                user_id=res.get("user_id"),
+                full_name=res.get("full_name")
+            )
+
+            # Auto-fill and persist verified profile in DB
+            users = load_users()
             if current_email not in users:
                 users[current_email] = dict(user)
             user_record = users[current_email]
@@ -1163,22 +1247,17 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             user_record["branch"] = res.get("branch_name") or user_record.get("branch", "CSE")
             user_record["edumarshal"] = {
                 "username": username,
-                "password": password,
+                "has_vault_secret": True,
                 "verified_at": time.time(),
                 "user_id": res.get("user_id"),
                 "full_name": res.get("full_name")
             }
             save_users(users)
 
-            # Update active session token
+            # Update active session
             token = user.get("session_token")
-            sessions = load_sessions()
-            if token in sessions:
-                sessions[token]["roll_number"] = roll
-                sessions[token]["is_verified"] = True
-                sessions[token]["edumarshal"] = user_record["edumarshal"]
-                sessions[token]["semester"] = user_record["semester"]
-                save_sessions()
+            if token:
+                campusiq_db.create_session(token, user_record)
 
             self._send_json({
                 "status": "success",
@@ -1200,16 +1279,18 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             current_email = user.get("email", "").lower().strip()
+            campusiq_db.delete_credential(current_email)
+
             users = load_users()
             if current_email in users:
                 users[current_email]["edumarshal"] = None
                 save_users(users)
 
             token = user.get("session_token")
-            sessions = load_sessions()
-            if token in sessions:
-                sessions[token]["edumarshal"] = None
-                save_sessions()
+            if token:
+                user_copy = dict(user)
+                user_copy["edumarshal"] = None
+                campusiq_db.create_session(token, user_copy)
 
             self._send_json({"status": "success", "message": "Edumarshal credentials unlinked successfully."})
         except Exception as e:
@@ -1290,11 +1371,24 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"status": "error", "message": str(e)}, 500)
 
     def get_authenticated_user(self) -> Optional[Dict[str, Any]]:
-        auth_header = self.headers.get("Authorization", "")
         token = None
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1].strip()
 
+        # 1. Primary: HttpOnly Cookie 'campusiq_session'
+        cookie_header = self.headers.get("Cookie", "")
+        if cookie_header:
+            for c in cookie_header.split(";"):
+                c = c.strip()
+                if c.startswith("campusiq_session="):
+                    token = c.split("=", 1)[1].strip()
+                    break
+
+        # 2. Authorization Header: Bearer <token>
+        if not token:
+            auth_header = self.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1].strip()
+
+        # 3. Fallback URL Parameter: ?token=
         if not token:
             parsed = urllib.parse.urlparse(self.path)
             params = urllib.parse.parse_qs(parsed.query)
@@ -1303,6 +1397,12 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         if not token:
             return None
 
+        # Retrieve verified session from persistent database
+        session = campusiq_db.get_session(token)
+        if session:
+            return session
+
+        # Fallback to in-memory session cache
         sessions = load_sessions()
         return sessions.get(token)
 
@@ -1326,7 +1426,13 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         roll = user_record.get("roll_number") or user.get("roll_number")
         is_verified = bool(user_record.get("is_verified") or user.get("is_verified"))
         edu_info = user_record.get("edumarshal") or user.get("edumarshal") or {}
-        has_edumarshal = bool(edu_info.get("username") and edu_info.get("password"))
+        has_edumarshal = bool(
+            edu_info.get("username") and (
+                edu_info.get("password") or
+                edu_info.get("has_vault_secret") or
+                campusiq_db.get_credential(user.get("email", ""))
+            )
+        )
 
         # Build safe user object for frontend (strip raw credentials)
         safe_user = dict(user)
@@ -1335,6 +1441,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         safe_user["has_edumarshal"] = has_edumarshal
         if "edumarshal" in safe_user and isinstance(safe_user["edumarshal"], dict):
             safe_user["edumarshal"] = {k: v for k, v in safe_user["edumarshal"].items() if k != "password"}
+            safe_user["edumarshal"]["has_vault_secret"] = True
 
         db = load_all_students_db()
         student = db.get(roll) if roll else None
@@ -1390,23 +1497,27 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         scheme = "https" if is_https else "http"
         redirect_uri = f"{scheme}://{host}/api/auth/google/callback"
 
+        state = secrets.token_urlsafe(32)
         params = {
             "client_id": client_id,
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "scope": "openid email profile",
             "access_type": "online",
-            "prompt": "select_account"
+            "prompt": "select_account",
+            "state": state
         }
         oauth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
         self.send_response(302)
         self.send_header("Location", oauth_url)
+        self.send_header("Set-Cookie", f"campusiq_oauth_state={state}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=600" + ("; Secure" if is_https else ""))
         self.end_headers()
 
     # 14c. Google OAuth 2.0 Callback & Code Exchange
     def handle_api_auth_google_callback(self, params: Dict[str, List[str]]):
         code = params.get("code", [""])[0]
         error = params.get("error", [""])[0]
+        incoming_state = params.get("state", [""])[0]
 
         if error:
             error_html = f"""<!DOCTYPE html><html><body style="background:#09090b;color:#f87171;font-family:sans-serif;padding:30px;text-align:center;">
@@ -1415,6 +1526,19 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             <script>setTimeout(() => window.close(), 3000);</script>
             </body></html>"""
             self._send_html(error_html, 400)
+            return
+
+        # CSRF State Validation
+        cookie_header = self.headers.get("Cookie", "")
+        expected_state = ""
+        if cookie_header:
+            for c in cookie_header.split(";"):
+                c = c.strip()
+                if c.startswith("campusiq_oauth_state="):
+                    expected_state = c.split("=", 1)[1].strip()
+                    break
+        if expected_state and incoming_state and not hmac.compare_digest(incoming_state, expected_state):
+            self._send_html("<h3 style='color:#f87171;'>OAuth security error: state verification mismatch (possible CSRF).</h3>", 403)
             return
 
         if not code:
@@ -1524,9 +1648,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "auth_provider": "google",
                 "created_at": time.time()
             }
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
+            campusiq_db.create_session(token, user_session)
 
             auth_payload = json.dumps({
                 "type": "GOOGLE_AUTH_SUCCESS",
@@ -1535,6 +1657,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "student": student
             })
 
+            cookie_header = self._get_session_cookie_header(token)
             html_response = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1559,7 +1682,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
   </script>
 </body>
 </html>"""
-            self._send_html(html_response)
+            self._send_html(html_response, extra_headers={"Set-Cookie": cookie_header})
         except Exception as e:
             error_html = f"""<!DOCTYPE html><html><body style="background:#09090b;color:#f87171;font-family:sans-serif;padding:30px;text-align:center;">
             <h3>Google Authentication Failed</h3>
@@ -1642,17 +1765,16 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "auth_provider": "google",
                 "created_at": time.time()
             }
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
+            campusiq_db.create_session(token, user_session)
 
+            cookie_header = self._get_session_cookie_header(token)
             self._send_json({
                 "status": "success",
                 "message": f"Successfully signed in with Google as {name}!",
                 "session_token": token,
                 "user": user_session,
                 "student": student
-            })
+            }, extra_headers={"Set-Cookie": cookie_header})
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
@@ -1673,6 +1795,18 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             req = urllib.request.Request(verify_url, headers={"User-Agent": "CampusIQ-Server/2.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 token_info = json.loads(resp.read().decode("utf-8"))
+
+            # Strict Audience Verification against Configured Client ID
+            cfg = load_auth_config()
+            expected_client_id = cfg.get("google_client_id") or os.environ.get("GOOGLE_CLIENT_ID", "")
+            if expected_client_id:
+                token_aud = token_info.get("aud", "").strip()
+                if token_aud != expected_client_id.strip():
+                    self._send_json({
+                        "status": "error",
+                        "message": "Google verification failed: invalid token audience (aud mismatch)."
+                    }, 401)
+                    return
 
             email = token_info.get("email", "").strip().lower()
             email_verified = token_info.get("email_verified") in (True, "true", "True", 1)
@@ -1737,17 +1871,16 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 "auth_provider": "google",
                 "created_at": time.time()
             }
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
+            campusiq_db.create_session(token, user_session)
 
+            cookie_header = self._get_session_cookie_header(token)
             self._send_json({
                 "status": "success",
                 "message": f"Successfully signed in with Google as {name}!",
                 "session_token": token,
                 "user": user_session,
                 "student": student
-            })
+            }, extra_headers={"Set-Cookie": cookie_header})
         except Exception as e:
             self._send_json({"status": "error", "message": f"Google verification error: {str(e)}"}, 401)
 
@@ -1789,15 +1922,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             user = self.get_authenticated_user()
             if user:
                 token = user.get("session_token")
-                sessions = load_sessions()
-                if token in sessions:
-                    del sessions[token]
-                    save_sessions()
-
-            self._send_json({
-                "status": "success",
-                "message": "Signed out successfully."
-            })
+                if token:
+                    campusiq_db.delete_session(token)
+            clear_cookie = "campusiq_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+            self._send_json({"status": "success", "message": "Signed out successfully."}, 200, extra_headers={"Set-Cookie": clear_cookie})
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 
