@@ -288,7 +288,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="CampusIQ - Academic Study Resource Cataloguer & Manifest Generator"
     )
-    parser.add_argument("--dir", type=str, default="/home/tanmay/Workspaces/Academics/College", help="Root directory of academic resources")
+    default_vault = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "vault")
+    parser.add_argument("--dir", type=str, default=default_vault, help="Root directory of academic resources")
     parser.add_argument("--semester", type=int, help="Filter by specific semester (e.g. 3)")
     parser.add_argument("--subject", type=str, help="Filter by subject name")
     parser.add_argument("--typeset-only", action="store_true", default=True, help="Include only verified typeset documents (Default: True)")

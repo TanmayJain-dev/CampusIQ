@@ -1,7 +1,7 @@
 # 🎓 CampusIQ — Next-Gen Student Operating System & Automation Hub
 
 > **State-of-the-Art Intelligence Infrastructure for GGSIPU & Affiliated Colleges (MAIT, USICT, MSIT, BVCOE, BPIT)**  
-> Engineered by Tanmay Jain for ATLAS (Automated Technologies & Logical Applications Society).
+> Engineered for ATLAS (Automated Technologies & Logical Applications Society).
 
 ---
 
@@ -10,7 +10,7 @@
 Launch the complete full-stack web application (frontend + backend + real-time scrapers) with a single command:
 
 ```bash
-cd /home/tanmay/Workspaces/Projects/CampusIQ
+cd CampusIQ
 ./run.sh
 ```
 
@@ -31,7 +31,7 @@ CampusIQ completely eliminates the fragmented, friction-heavy legacy university 
    - **1-Click Broadcast**: Instant copy button for WhatsApp, Discord, and Telegram announcements.
 
 2. **💎 CampusIQ Academic Study Resource Vault**:
-   - Indexed catalog of **231 university documents** and **52 publication-grade typeset PYQ master papers** in `/home/tanmay/Workspaces/Academics/College`.
+   - Indexed catalog of **231 university documents** and **52 publication-grade typeset PYQ master papers** in the academic vault (`assets/vault`).
    - Complete coverage for all Semester 3 core subjects:
      - Computational Methods (`ES-201`)
      - Discrete Mathematics (`CIC-205`)
@@ -85,7 +85,7 @@ The built-in backend server (`server.py`) provides fast JSON APIs:
 ## 📁 Repository Structure
 
 ```
-/home/tanmay/Workspaces/Projects/CampusIQ/
+CampusIQ/
 ├── run.sh                          # One-click platform launcher
 ├── server.py                       # High-speed HTTP & REST API server
 ├── campusiq_examweb.py             # ExamWeb portal client & marksheet parser
@@ -117,5 +117,5 @@ CampusIQ is ready for 1-click deployment on Render:
 - **Plan**: Free / Starter
 - **Environment Variables**:
   - `PORT`: (Provided automatically by Render)
-  - `N8N_WEBHOOK_URL`: `https://n8n-tanmay.onrender.com/webhook/campusiq-notices`
+  - `N8N_WEBHOOK_URL`: (Optional webhook URL for notice alerts)
 

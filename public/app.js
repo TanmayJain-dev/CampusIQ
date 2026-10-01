@@ -3117,9 +3117,6 @@ function handleGoogleSignInClick() {
   const msg = "To enable 1-click Google OAuth popup, please enter your Google Cloud OAuth Client ID (or set GOOGLE_CLIENT_ID on Render). Would you like to enter it now?";
   if (confirm(msg)) {
     promptConfigureGoogleClientId();
-  } else {
-    switchAuthTab("signin");
-    fillTanmayCredentials();
   }
 }
 
@@ -3167,129 +3164,15 @@ async function promptConfigureGoogleClientId() {
   }
 }
 
-// Switch between "Sign In" and "Create Account"
+// Switch between Auth Tabs (Deprecated - Google Sign-In Only)
 function switchAuthTab(tab) {
-  state.authMode = tab;
-  const tabSignIn = document.getElementById("auth-tab-signin");
-  const tabRegister = document.getElementById("auth-tab-register");
-  const nameGroup = document.getElementById("auth-name-group");
-  const rollGroup = document.getElementById("auth-roll-group");
-  const submitText = document.getElementById("btn-submit-auth-text");
-  const errAlert = document.getElementById("auth-error-alert");
-
-  if (errAlert) errAlert.classList.add("hidden");
-
-  if (tab === "signin") {
-    if (tabSignIn) {
-      tabSignIn.className = "flex-1 py-1.5 rounded-lg font-semibold text-white bg-zinc-800 shadow transition-all";
-    }
-    if (tabRegister) {
-      tabRegister.className = "flex-1 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all";
-    }
-    if (nameGroup) nameGroup.classList.add("hidden");
-    if (rollGroup) rollGroup.classList.add("hidden");
-    if (submitText) submitText.innerText = "Sign In with Password";
-  } else {
-    if (tabSignIn) {
-      tabSignIn.className = "flex-1 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all";
-    }
-    if (tabRegister) {
-      tabRegister.className = "flex-1 py-1.5 rounded-lg font-semibold text-white bg-zinc-800 shadow transition-all";
-    }
-    if (nameGroup) nameGroup.classList.remove("hidden");
-    if (rollGroup) rollGroup.classList.remove("hidden");
-    if (submitText) submitText.innerText = "Create Account & Sign In";
-  }
-  lucide.createIcons();
+  // Pure Google Sign-In enforced
 }
 
-// 1-Click Quick Fill Helper for Tanmay
-function fillTanmayCredentials() {
-  const emailInput = document.getElementById("signin-email");
-  const pwdInput = document.getElementById("signin-password");
-  const nameInput = document.getElementById("signin-name");
-  const rollInput = document.getElementById("signin-roll");
-  const errAlert = document.getElementById("auth-error-alert");
-
-  if (errAlert) errAlert.classList.add("hidden");
-  if (emailInput) emailInput.value = "tanmay.jain@ipu.ac.in";
-  if (pwdInput) pwdInput.value = "Tanmay@2008";
-  if (nameInput) nameInput.value = "Tanmay Jain";
-  if (rollInput) rollInput.value = "08414802725";
-
-  showToast("🔑 Populated credentials. Click Sign In to verify.");
-}
-
-// Handle Form Submission: Login with Password OR Create Account
+// Handle Form Submission: Password Auth Disabled
 async function handleAuthSubmit(e) {
-  e.preventDefault();
-  const errAlert = document.getElementById("auth-error-alert");
-  const errMsg = document.getElementById("auth-error-msg");
-  if (errAlert) errAlert.classList.add("hidden");
-
-  const email = (document.getElementById("signin-email")?.value || "").trim();
-  const password = (document.getElementById("signin-password")?.value || "").trim();
-  const name = (document.getElementById("signin-name")?.value || "").trim();
-  const roll = (document.getElementById("signin-roll")?.value || "").trim();
-
-  if (!email || !password) {
-    if (errAlert && errMsg) {
-      errMsg.innerText = "Please provide both email and password.";
-      errAlert.classList.remove("hidden");
-    }
-    return;
-  }
-
-  const submitBtn = document.getElementById("btn-submit-auth");
-  const submitText = document.getElementById("btn-submit-auth-text");
-  if (submitBtn) submitBtn.disabled = true;
-  if (submitText) submitText.innerText = state.authMode === "register" ? "Creating Account..." : "Verifying Credentials...";
-
-  try {
-    const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
-    const payload = state.authMode === "register"
-      ? { email, password, name }
-      : { email, password };
-
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (res.ok && data.status === "success" && data.session_token) {
-      localStorage.setItem("campusiq_session_token", data.session_token);
-      state.sessionToken = data.session_token;
-      state.currentUser = data.user;
-      state.currentStudent = data.student;
-
-      closeSignInGatekeeper();
-      renderHeaderAuth(data.user, data.student);
-      populateMyProfileUI(data.user, data.student);
-      closeGoogleAuthModal();
-      showToast(`🎉 ${data.message || 'Authenticated successfully!'}`);
-      fetchDirectoryStudents();
-    } else {
-      if (errAlert && errMsg) {
-        errMsg.innerText = data.message || "Authentication failed. Please verify credentials.";
-        errAlert.classList.remove("hidden");
-      }
-      showToast(`❌ ${data.message || 'Authentication error'}`);
-    }
-  } catch (err) {
-    console.error("Auth error:", err);
-    if (errAlert && errMsg) {
-      errMsg.innerText = "Connection error. Please check your network.";
-      errAlert.classList.remove("hidden");
-    }
-    showToast("Network error during authentication.");
-  } finally {
-    if (submitBtn) submitBtn.disabled = false;
-    if (submitText) {
-      submitText.innerText = state.authMode === "register" ? "Create Account & Sign In" : "Sign In with Password";
-    }
-  }
+  if (e) e.preventDefault();
+  showToast("ID & password sign-in is disabled. Please continue with Google Sign-In.");
 }
 
 async function handleSignOut() {
@@ -3337,13 +3220,6 @@ function closeEdumarshalVerifyModalOnBackdrop(e) {
   if (e.target.id === "edumarshal-verify-modal") {
     closeEdumarshalVerifyModal();
   }
-}
-
-function fillTanmayEdumarshal() {
-  const uInput = document.getElementById("edu-input-username");
-  const pInput = document.getElementById("edu-input-password");
-  if (uInput) uInput.value = "08414802725";
-  if (pInput) pInput.value = "mait@2029";
 }
 
 async function submitEdumarshalVerification(e) {

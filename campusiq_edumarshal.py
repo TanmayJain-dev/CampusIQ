@@ -19,8 +19,8 @@ import urllib.request
 import urllib.parse
 from typing import Dict, List, Optional, Any, Tuple
 
-DEFAULT_USERNAME = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
-DEFAULT_PASSWORD = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
+DEFAULT_USERNAME = os.environ.get("EDUMARSHAL_USERNAME", "")
+DEFAULT_PASSWORD = os.environ.get("EDUMARSHAL_PASSWORD", "")
 EDUMARSHAL_BASE = "https://app.edumarshal.com"
 CLOUDFRONT_BASE = "https://dnhxw4vnj977w.cloudfront.net"
 
@@ -513,12 +513,9 @@ def get_mait_circulars(force: bool = False) -> List[Dict[str, Any]]:
 
 # Quick CLI test execution
 if __name__ == "__main__":
-    print("[*] Running Verification Test with Tanmay Jain...")
-    res = verify_and_extract_identity("08414802725", "mait@2029", student_name="Tanmay Jain")
-    print("[+] Verification Result:", res["verified"], "Roll:", res.get("roll_number"), "Name:", res.get("full_name"))
-
-    print("\n[*] Testing Date-wise Attendance Calendar...")
-    cal = get_mait_calendar()
-    print(f"[+] Total days in calendar: {cal['total_days_logged']}")
-    sample_day = list(cal["dates"].values())[0]
-    print(f"Sample Day [{sample_day['date']}]: Status={sample_day['status']}, Lectures={len(sample_day['lectures'])}")
+    if DEFAULT_USERNAME and DEFAULT_PASSWORD:
+        print(f"[*] Testing Edumarshal connection for user {DEFAULT_USERNAME}...")
+        cal = get_mait_calendar(username=DEFAULT_USERNAME, password=DEFAULT_PASSWORD)
+        print(f"[+] Total days in calendar: {cal.get('total_days_logged', 0)}")
+    else:
+        print("[*] No EDUMARSHAL_USERNAME or EDUMARSHAL_PASSWORD configured in environment.")

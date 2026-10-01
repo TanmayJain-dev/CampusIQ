@@ -49,15 +49,9 @@ from campusiq_examweb import (
 )
 
 PORT = int(os.environ.get("PORT", 5000))
-N8N_WEBHOOK_URL = os.environ.get(
-    "N8N_WEBHOOK_URL",
-    "https://n8n-tanmay.onrender.com/webhook/campusiq-notices"
-)
+N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 BUNDLED_VAULT_DIR = os.path.join(PROJECT_DIR, "assets", "vault")
-ACADEMIC_DIR = os.environ.get(
-    "ACADEMIC_DIR",
-    BUNDLED_VAULT_DIR if os.path.exists(BUNDLED_VAULT_DIR) else "/home/tanmay/Workspaces/Academics/College"
-)
+ACADEMIC_DIR = os.environ.get("ACADEMIC_DIR", BUNDLED_VAULT_DIR)
 SAMPLE_RESULT_PDF = os.path.join(PROJECT_DIR, "sample_result.pdf")
 
 # Session & User Store Configuration
@@ -177,30 +171,6 @@ def load_users() -> Dict[str, Any]:
     global _USERS
     if not os.path.exists(USERS_FILE):
         _USERS = {}
-        # Seed Tanmay's primary account
-        pwd_hash, salt = hash_password("Tanmay@2008")
-        _USERS["tanmay.jain@ipu.ac.in"] = {
-            "id": "usr_08414802725",
-            "email": "tanmay.jain@ipu.ac.in",
-            "name": "Tanmay Jain",
-            "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
-            "roll_number": "08414802725",
-            "password_hash": pwd_hash,
-            "salt": salt,
-            "auth_provider": "local",
-            "created_at": time.time()
-        }
-        _USERS["pinkijain47@gmail.com"] = {
-            "id": "usr_08414802725_alt",
-            "email": "pinkijain47@gmail.com",
-            "name": "Tanmay Jain",
-            "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Tanmay%20Jain",
-            "roll_number": "08414802725",
-            "password_hash": pwd_hash,
-            "salt": salt,
-            "auth_provider": "local",
-            "created_at": time.time()
-        }
         save_users(_USERS)
         return _USERS
     try:
@@ -1073,10 +1043,17 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             username = edu_info.get("username")
             password = edu_info.get("password")
 
-        # Fallback to defaults if no user is logged in (for demo preview)
+        # If no user credentials, check environment without hardcoded fallbacks
         if not (username and password):
-            username = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
-            password = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
+            username = os.environ.get("EDUMARSHAL_USERNAME", "")
+            password = os.environ.get("EDUMARSHAL_PASSWORD", "")
+
+        if not (username and password):
+            self._send_json({
+                "status": "unlinked",
+                "message": "Edumarshal account is not linked. Please link your credentials to load attendance."
+            })
+            return
 
         try:
             from campusiq_edumarshal import get_mait_attendance
@@ -1099,8 +1076,15 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             password = edu_info.get("password")
 
         if not (username and password):
-            username = os.environ.get("EDUMARSHAL_USERNAME", "08414802725")
-            password = os.environ.get("EDUMARSHAL_PASSWORD", "mait@2029")
+            username = os.environ.get("EDUMARSHAL_USERNAME", "")
+            password = os.environ.get("EDUMARSHAL_PASSWORD", "")
+
+        if not (username and password):
+            self._send_json({
+                "status": "unlinked",
+                "message": "Edumarshal account is not linked. Please link your credentials to load attendance calendar."
+            })
+            return
 
         try:
             from campusiq_edumarshal import get_mait_calendar
@@ -1243,11 +1227,12 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         status = 200 if res.get("status") == "success" else 503
         self._send_json(res, status)
 
-    # 10. ExamWeb Demo / Verified Fallback Marksheet
+    # 10. ExamWeb Demo / Verified Fallback Marksheet (Disabled)
     def handle_api_examweb_demo(self):
-        res = ExamWebClient.get_cached_or_demo_result()
-        status = 200 if res.get("status") == "success" else 404
-        self._send_json(res, status)
+        self._send_json({
+            "status": "error",
+            "message": "Demo marksheet preview has been disabled. Please log in to ExamWeb with your enrollment number."
+        }, 403)
 
     # 11. ExamWeb Login & Scraper
     def handle_api_examweb_login(self):
@@ -1762,139 +1747,21 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json({"status": "error", "message": f"Google verification error: {str(e)}"}, 401)
 
-    # 14c. Local Student Email & Password Login
+    # 14c. Local Student Email & Password Login (Disabled - Google Sign-In Only)
     def handle_api_auth_login(self):
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            body_bytes = self.rfile.read(length)
-            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+        self._send_json({
+            "status": "error",
+            "message": "Username and password sign-in is disabled. Please continue with Google Sign-In."
+        }, 403)
 
-            email = data.get("email", "").strip().lower()
-            password = data.get("password", "").strip()
-
-            if not email or not password:
-                self._send_json({"status": "error", "message": "Email and password are both required."}, 400)
-                return
-
-            users = load_users()
-            user_record = users.get(email)
-            if not user_record:
-                self._send_json({
-                    "status": "error",
-                    "message": "No account found with this email. Please register or sign in with Google."
-                }, 404)
-                return
-
-            salt = user_record.get("salt")
-            pwd_hash = user_record.get("password_hash")
-            if not salt or not pwd_hash or not verify_password(password, salt, pwd_hash):
-                self._send_json({
-                    "status": "error",
-                    "message": "Incorrect password. Please verify your credentials."
-                }, 401)
-                return
-
-            roll = user_record.get("roll_number")
-            db = load_all_students_db()
-            student = db.get(roll) if roll else None
-
-            token = secrets.token_hex(24)
-            user_session = {
-                "session_token": token,
-                "email": email,
-                "name": user_record.get("name", "Student"),
-                "avatar_url": user_record.get("avatar_url"),
-                "roll_number": roll,
-                "auth_provider": "local",
-                "created_at": time.time()
-            }
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
-
-            self._send_json({
-                "status": "success",
-                "message": f"Welcome back, {user_session['name']}!",
-                "session_token": token,
-                "user": user_session,
-                "student": student
-            })
-        except Exception as e:
-            self._send_json({"status": "error", "message": str(e)}, 500)
-
-    # 14d. Register New Student Account (with Password)
+    # 14d. Register New Student Account (Disabled - Google Sign-In Only)
     def handle_api_auth_register(self):
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            body_bytes = self.rfile.read(length)
-            data = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+        self._send_json({
+            "status": "error",
+            "message": "Account registration via password is disabled. Please continue with Google Sign-In."
+        }, 403)
 
-            email = data.get("email", "").strip().lower()
-            password = data.get("password", "").strip()
-            name = data.get("name", "").strip()
-            roll = data.get("roll_number", "").strip()
-
-            if not email or "@" not in email:
-                self._send_json({"status": "error", "message": "A valid email address is required."}, 400)
-                return
-            if not password or len(password) < 6:
-                self._send_json({"status": "error", "message": "Password must be at least 6 characters long."}, 400)
-                return
-            if not name:
-                name = email.split("@")[0].replace(".", " ").title()
-
-            users = load_users()
-            if email in users:
-                self._send_json({"status": "error", "message": "An account with this email already exists. Please sign in."}, 409)
-                return
-
-            pwd_hash, salt = hash_password(password)
-            avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}"
-
-            db = load_all_students_db()
-            student = None
-            if roll and roll in db:
-                student = db[roll]
-
-            user_record = {
-                "id": f"usr_{secrets.token_hex(8)}",
-                "email": email,
-                "name": name,
-                "avatar_url": avatar,
-                "roll_number": roll or None,
-                "password_hash": pwd_hash,
-                "salt": salt,
-                "auth_provider": "local",
-                "created_at": time.time()
-            }
-            users[email] = user_record
-            save_users(users)
-
-            token = secrets.token_hex(24)
-            user_session = {
-                "session_token": token,
-                "email": email,
-                "name": name,
-                "avatar_url": avatar,
-                "roll_number": roll or None,
-                "auth_provider": "local",
-                "created_at": time.time()
-            }
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
-
-            self._send_json({
-                "status": "success",
-                "message": f"Account created! Welcome, {name}!",
-                "session_token": token,
-                "user": user_session,
-                "student": student
-            }, 201)
-        except Exception as e:
-            self._send_json({"status": "error", "message": str(e)}, 500)
-
-    # 14e. Direct / Legacy Sign In Endpoint (Backward compatibility)
+    # 14e. Direct / Legacy Sign In Endpoint (Enforces Google Sign-In Only)
     def handle_api_auth_signin(self):
         try:
             length = int(self.headers.get("Content-Length", 0))
@@ -1905,65 +1772,10 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 self.handle_api_auth_google_verify()
                 return
 
-            if "password" in data:
-                self.handle_api_auth_login()
-                return
-
-            email = data.get("email", "").strip().lower()
-            name = data.get("name", "").strip()
-            avatar = data.get("avatar", "").strip()
-            roll = data.get("roll_number", "").strip()
-
-            if not email:
-                self._send_json({"status": "error", "message": "Email is required to sign in."}, 400)
-                return
-
-            if not name:
-                name = email.split("@")[0].replace(".", " ").title()
-
-            if not avatar:
-                avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={urllib.parse.quote(name)}"
-
-            db = load_all_students_db()
-            student = None
-            if roll:
-                student = db.get(roll)
-            else:
-                for r, s in db.items():
-                    if s.get("email", "").lower() == email:
-                        roll = r
-                        student = s
-                        break
-
-            users = load_users()
-            user_record = users.get(email, {})
-            verified_roll = user_record.get("roll_number") or roll or None
-            is_ver = bool(user_record.get("is_verified", False))
-            has_edu = bool(user_record.get("edumarshal", {}).get("username"))
-
-            token = secrets.token_hex(24)
-            user_session = {
-                "session_token": token,
-                "email": email,
-                "name": name,
-                "avatar_url": user_record.get("avatar_url") or avatar,
-                "roll_number": verified_roll,
-                "is_verified": is_ver,
-                "has_edumarshal": has_edu,
-                "created_at": time.time()
-            }
-
-            sessions = load_sessions()
-            sessions[token] = user_session
-            save_sessions()
-
             self._send_json({
-                "status": "success",
-                "message": f"Welcome, {name}!",
-                "session_token": token,
-                "user": user_session,
-                "student": student
-            })
+                "status": "error",
+                "message": "Only Google Sign-In is supported. Please continue with Google Sign-In."
+            }, 403)
         except Exception as e:
             self._send_json({"status": "error", "message": str(e)}, 500)
 

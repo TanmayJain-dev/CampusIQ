@@ -531,13 +531,9 @@ class ExamWebClient:
 
     @staticmethod
     def get_cached_or_demo_result() -> Dict[str, Any]:
-        """Provides verified ground-truth student marksheet (Tanmay MAIT 2025)."""
-        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cached_verified_result.json")
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return GGSIPUExamWebScraper.get_verified_demo_result()
+        """Demo marksheet preview has been disabled."""
+        return {
+            "status": "error",
+            "message": "Demo marksheet has been disabled. Please enter your roll number and ExamWeb credentials to fetch your verified result."
+        }
 

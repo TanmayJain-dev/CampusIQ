@@ -26,11 +26,6 @@ DEFAULT_TARGETS = [
         "name": "CampusIQ",
         "url": "https://campusiq-i9aq.onrender.com/api/health",
         "critical": True
-    },
-    {
-        "name": "n8n-tanmay",
-        "url": "https://n8n-tanmay.onrender.com/healthz",
-        "critical": False
     }
 ]
 

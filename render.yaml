@@ -10,5 +10,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: N8N_WEBHOOK_URL
-        value: https://n8n-tanmay.onrender.com/webhook/campusiq-notices
