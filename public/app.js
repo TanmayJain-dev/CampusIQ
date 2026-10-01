@@ -40,8 +40,18 @@ const state = {
   // Student Community & Profile Segregation
   activeCommunitySubView: "directory",
   sessionToken: localStorage.getItem("campusiq_session_token") || null,
-  currentUser: null,
-  currentStudent: null,
+  currentUser: (() => {
+    try {
+      const u = localStorage.getItem("campusiq_cached_user");
+      return u ? JSON.parse(u) : null;
+    } catch (e) { return null; }
+  })(),
+  currentStudent: (() => {
+    try {
+      const s = localStorage.getItem("campusiq_cached_student");
+      return s ? JSON.parse(s) : null;
+    } catch (e) { return null; }
+  })(),
   googleClientId: "",
   authMode: "signin",
   directoryStudents: [],
@@ -89,6 +99,11 @@ const SEM3_SUBJECTS = [
 document.addEventListener("DOMContentLoaded", () => {
   loadStoredProfile();
   initCalculator();
+  if (state.currentUser) {
+    closeSignInGatekeeper();
+    renderHeaderAuth(state.currentUser, state.currentStudent);
+    populateMyProfileUI(state.currentUser, state.currentStudent);
+  }
   fetchNotices();
   fetchResourcesTree();
   fetchResources();
@@ -271,7 +286,17 @@ async function fetchNotices(force = false) {
     filterNotices();
   } catch (e) {
     console.error("Notice fetch error:", e);
-    grid.innerHTML = `<div class="col-span-full p-8 text-center text-red-400 text-xs">Error loading live notices. Please try again.</div>`;
+    grid.innerHTML = renderCustomErrorCard({
+      icon: "wifi-off",
+      title: "Notice Feed Interrupted",
+      message: "Unable to establish live connection with university circular feeds. Please verify network access or retry synchronization.",
+      actionText: "Retry Notice Sync",
+      actionFn: "fetchNotices(true)"
+    });
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+    showToast("Unable to load latest notices", "error", "Noticeboard Offline");
   }
 }
 
@@ -993,13 +1018,31 @@ async function handleExamWebLogin(e) {
       showToast("🎉 Marksheet generated successfully!");
       renderOfficialMarksheet(data);
     } else {
-      statusDiv.className = "text-xs text-center p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20";
-      statusDiv.innerHTML = `<span>❌ ${data.message || 'Login failed. Please check credentials and captcha.'}</span>`;
+      statusDiv.className = "text-xs p-3.5 rounded-2xl bg-red-950/30 text-red-300 border border-red-500/30 shadow-[0_4px_20px_rgba(239,68,68,0.15)] flex items-start gap-2.5 text-left";
+      statusDiv.innerHTML = `
+        <div class="w-5 h-5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
+          <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+        </div>
+        <div class="space-y-0.5">
+          <div class="font-bold text-red-300 text-xs">ExamWeb Login Failed</div>
+          <div class="text-[11px] text-red-400/90 leading-relaxed">${escapeHtml(data.message || 'Please check enrollment number, password, and captcha.')}</div>
+        </div>
+      `;
       refreshExamWebCaptcha();
+      showToast(data.message || "ExamWeb authentication failed", "error", "ExamWeb Error");
     }
   } catch (err) {
-    statusDiv.className = "text-xs text-center p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20";
-    statusDiv.innerHTML = `<span>❌ Communication error with CampusIQ backend.</span>`;
+    statusDiv.className = "text-xs p-3.5 rounded-2xl bg-red-950/30 text-red-300 border border-red-500/30 shadow-[0_4px_20px_rgba(239,68,68,0.15)] flex items-start gap-2.5 text-left";
+    statusDiv.innerHTML = `
+      <div class="w-5 h-5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
+        <i data-lucide="wifi-off" class="w-3.5 h-3.5"></i>
+      </div>
+      <div class="space-y-0.5">
+        <div class="font-bold text-red-300 text-xs">Backend Communication Error</div>
+        <div class="text-[11px] text-red-400/90 leading-relaxed">Could not reach the university examination portal. Please try again.</div>
+      </div>
+    `;
+    showToast("Communication error with examination server", "error", "Portal Error");
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = `
@@ -1487,17 +1530,27 @@ async function fetchAttendance(force = false) {
   } catch (err) {
     console.error("Attendance fetch error:", err);
     state.isAttendanceLoading = false;
-    grid.innerHTML = `
-      <div class="col-span-full p-8 text-center text-red-400 text-xs rounded-2xl glass-card border border-red-500/20">
-        <i data-lucide="alert-triangle" class="w-6 h-6 mx-auto mb-2 text-red-400"></i>
-        <p class="font-medium">Failed to fetch Edumarshal attendance.</p>
-        <p class="text-zinc-500 mt-1">${err.message}</p>
-        <button onclick="fetchAttendance(true)" class="mt-4 px-3.5 py-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all font-mono">
-          Retry Sync
-        </button>
-      </div>
-    `;
-    lucide.createIcons();
+    const isCredIssue = err.message && (
+      err.message.toLowerCase().includes("credential") || 
+      err.message.toLowerCase().includes("password") || 
+      err.message.toLowerCase().includes("login") || 
+      err.message.toLowerCase().includes("auth") ||
+      err.message.toLowerCase().includes("linked")
+    );
+
+    grid.innerHTML = renderCustomErrorCard({
+      icon: isCredIssue ? "shield-alert" : "cloud-off",
+      title: isCredIssue ? "Edumarshal Authentication Required" : "Attendance Synchronization Interrupted",
+      message: err.message || "Failed to communicate with Edumarshal student portal.",
+      actionText: isCredIssue ? "Verify Edumarshal" : "Retry Sync",
+      actionFn: isCredIssue ? "openEdumarshalVerifyModal()" : "fetchAttendance(true)",
+      secondaryText: isCredIssue ? "Retry Sync" : null,
+      secondaryFn: isCredIssue ? "fetchAttendance(true)" : null
+    });
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+    showToast(err.message || "Failed to load attendance records", "error", "Attendance Error");
   }
 }
 
@@ -1712,16 +1765,20 @@ async function fetchAttendanceCalendar(force = false) {
   } catch (err) {
     console.error("Calendar fetch error:", err);
     grid.innerHTML = `
-      <div class="col-span-7 p-6 text-center text-red-400 text-xs rounded-xl bg-red-500/10 border border-red-500/20">
-        <i data-lucide="alert-triangle" class="w-6 h-6 mx-auto mb-2 text-red-400"></i>
-        <p class="font-medium">Failed to fetch calendar logs.</p>
-        <p class="text-zinc-500 mt-1">${err.message}</p>
-        <button onclick="fetchAttendanceCalendar(true)" class="mt-3 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 font-mono">
-          Retry Calendar Sync
-        </button>
+      <div class="col-span-7">
+        ${renderCustomErrorCard({
+          icon: "calendar-x-2",
+          title: "Calendar Records Unavailable",
+          message: err.message || "Unable to extract daily attendance lecture timestamps from Edumarshal.",
+          actionText: "Retry Calendar Sync",
+          actionFn: "fetchAttendanceCalendar(true)"
+        })}
       </div>
     `;
-    lucide.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+    showToast(err.message || "Failed to load calendar records", "error", "Calendar Sync Error");
   }
 }
 
@@ -1996,11 +2053,17 @@ async function loadAdminRoster() {
   } catch (err) {
     console.error("Admin roster load error:", err);
     if (grid) {
-      grid.innerHTML = `
-        <div class="col-span-full py-8 text-center text-red-400 text-xs">
-          Failed to load student dossiers from local registry.
-        </div>
-      `;
+      grid.innerHTML = renderCustomErrorCard({
+        icon: "users",
+        title: "Academic Roster Unavailable",
+        message: "Failed to load student dossiers from registry. Please verify database connection or retry.",
+        actionText: "Reload Roster",
+        actionFn: "loadAdminRoster()"
+      });
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
+      showToast("Failed to load academic dossiers", "error", "Roster Error");
     }
   }
 }
@@ -2290,6 +2353,20 @@ async function fetchCurrentUser() {
       credentials: "same-origin",
       headers: headers
     });
+
+    if (res.status === 401) {
+      console.warn("Session expired after 30 days inactivity (HTTP 401). Clearing session.");
+      clearClientSession();
+      return;
+    }
+
+    if (!res.ok) {
+      // 500, 502, 503, etc.: Server cold start or transient glitch.
+      // Do NOT log the student out!
+      console.warn(`Auth check returned HTTP ${res.status}; preserving cached session.`);
+      return;
+    }
+
     const data = await res.json();
     if (data.status === "success" && data.is_authenticated && data.user) {
       state.currentUser = data.user;
@@ -2298,24 +2375,34 @@ async function fetchCurrentUser() {
         state.sessionToken = data.user.session_token;
         localStorage.setItem("campusiq_session_token", data.user.session_token);
       }
+      localStorage.setItem("campusiq_cached_user", JSON.stringify(data.user));
+      if (data.student) {
+        localStorage.setItem("campusiq_cached_student", JSON.stringify(data.student));
+      }
       closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
     } else {
-      localStorage.removeItem("campusiq_session_token");
-      state.sessionToken = null;
-      state.currentUser = null;
-      state.currentStudent = null;
-      renderHeaderAuth(null, null);
-      populateMyProfileUI(null, null);
-      openSignInGatekeeper();
+      clearClientSession();
     }
   } catch (err) {
-    console.error("Failed to fetch current user session:", err);
-    renderHeaderAuth(null, null);
-    populateMyProfileUI(null, null);
-    openSignInGatekeeper();
+    console.warn("Auth check network error (offline or server waking up); preserving local session:", err);
+    if (!state.currentUser) {
+      openSignInGatekeeper();
+    }
   }
+}
+
+function clearClientSession() {
+  localStorage.removeItem("campusiq_session_token");
+  localStorage.removeItem("campusiq_cached_user");
+  localStorage.removeItem("campusiq_cached_student");
+  state.sessionToken = null;
+  state.currentUser = null;
+  state.currentStudent = null;
+  renderHeaderAuth(null, null);
+  populateMyProfileUI(null, null);
+  openSignInGatekeeper();
 }
 
 function renderHeaderAuth(user, student) {
@@ -3197,15 +3284,8 @@ async function handleSignOut() {
     } catch (e) {}
   }
 
-  localStorage.removeItem("campusiq_session_token");
-  state.sessionToken = null;
-  state.currentUser = null;
-  state.currentStudent = null;
-
-  renderHeaderAuth(null, null);
-  populateMyProfileUI(null, null);
-  openSignInGatekeeper();
-  showToast("👋 Signed out successfully");
+  clearClientSession();
+  showToast("You have been signed out successfully.", "info", "Signed Out");
 }
 
 function handleLinkRollNumber() {
@@ -3283,15 +3363,27 @@ async function submitEdumarshalVerification(e) {
       await fetchAttendanceCalendar(true);
     } else {
       if (errBox && errMsg) {
-        errMsg.innerText = data.message || "Edumarshal verification failed.";
-        errBox.classList.remove("hidden");
+        errMsg.innerText = data.message || "Edumarshal verification failed. Please check your credentials.";
+        errBox.classList.remove("hidden", "toast-shake");
+        void errBox.offsetWidth;
+        errBox.classList.add("toast-shake");
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+          window.lucide.createIcons();
+        }
       }
+      showToast(data.message || "Edumarshal verification failed", "error", "Verification Rejected");
     }
   } catch (err) {
     if (errBox && errMsg) {
       errMsg.innerText = err.message || "Network error communicating with verification backend.";
-      errBox.classList.remove("hidden");
+      errBox.classList.remove("hidden", "toast-shake");
+      void errBox.offsetWidth;
+      errBox.classList.add("toast-shake");
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
     }
+    showToast("Network error during verification", "error", "Connection Failed");
   } finally {
     if (btn) btn.disabled = false;
     if (btnText) btnText.innerText = "Verify & Auto-Fill Enrollment";
@@ -3313,12 +3405,144 @@ async function fetchStats() {
   } catch (e) {}
 }
 
-function showToast(msg) {
+let toastTimeout = null;
+
+function showToast(msgOrOpts, type = "info", title = null, duration = 3500) {
+  let message = "";
+  if (typeof msgOrOpts === "object" && msgOrOpts !== null) {
+    message = msgOrOpts.message || "";
+    type = msgOrOpts.type || type || "info";
+    title = msgOrOpts.title || title;
+    duration = msgOrOpts.duration || duration || 3500;
+  } else {
+    message = String(msgOrOpts || "");
+  }
+
+  // Auto-detect alert type if default "info" was provided
+  const lowerMsg = message.toLowerCase();
+  if (type === "info") {
+    if (lowerMsg.includes("fail") || lowerMsg.includes("error") || lowerMsg.includes("rejected") || lowerMsg.includes("denied") || lowerMsg.includes("disabled") || lowerMsg.includes("could not") || lowerMsg.includes("invalid") || message.includes("❌")) {
+      type = "error";
+    } else if (lowerMsg.includes("warning") || lowerMsg.includes("caution") || lowerMsg.includes("reconnecting") || lowerMsg.includes("wait") || lowerMsg.includes("timeout") || message.includes("⚠️")) {
+      type = "warning";
+    } else if (lowerMsg.includes("success") || lowerMsg.includes("verified") || lowerMsg.includes("approved") || lowerMsg.includes("saved") || lowerMsg.includes("loaded") || lowerMsg.includes("generated") || message.includes("✅") || message.includes("🎉") || message.includes("⚡")) {
+      type = "success";
+    }
+  }
+
+  // Auto-infer title if omitted
+  if (!title) {
+    switch (type) {
+      case "error":
+        title = "Action Failed";
+        break;
+      case "warning":
+        title = "Attention Required";
+        break;
+      case "success":
+        title = "Operation Successful";
+        break;
+      default:
+        title = "CampusIQ Notification";
+        break;
+    }
+  }
+
   const toast = document.getElementById("toast");
-  if (!toast) return;
-  document.getElementById("toast-msg").innerText = msg;
+  const msgEl = document.getElementById("toast-msg");
+  const titleEl = document.getElementById("toast-title");
+  const iconWrap = document.getElementById("toast-icon-wrap");
+  if (!toast || !msgEl) return;
+
+  msgEl.innerText = message;
+  if (titleEl) titleEl.innerText = title;
+
+  // Reset classes
+  toast.classList.remove("toast-error", "toast-warning", "toast-success", "toast-info", "toast-shake");
+  void toast.offsetWidth; // Trigger reflow
+
+  // Configure theme & Lucide icon
+  if (type === "error") {
+    toast.classList.add("toast-error", "toast-shake");
+    if (iconWrap) {
+      iconWrap.className = "shrink-0 w-7 h-7 rounded-xl flex items-center justify-center bg-red-500/15 text-red-400 border border-red-500/30";
+      iconWrap.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4"></i>`;
+    }
+  } else if (type === "warning") {
+    toast.classList.add("toast-warning");
+    if (iconWrap) {
+      iconWrap.className = "shrink-0 w-7 h-7 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-400 border border-amber-500/30";
+      iconWrap.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4"></i>`;
+    }
+  } else if (type === "success") {
+    toast.classList.add("toast-success");
+    if (iconWrap) {
+      iconWrap.className = "shrink-0 w-7 h-7 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+      iconWrap.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4"></i>`;
+    }
+  } else {
+    toast.classList.add("toast-info");
+    if (iconWrap) {
+      iconWrap.className = "shrink-0 w-7 h-7 rounded-xl flex items-center justify-center bg-blue-500/15 text-blue-400 border border-blue-500/30";
+      iconWrap.innerHTML = `<i data-lucide="info" class="w-4 h-4"></i>`;
+    }
+  }
+
+  if (window.lucide && typeof window.lucide.createIcons === "function") {
+    window.lucide.createIcons();
+  }
+
   toast.classList.add("show");
-  setTimeout(() => {
+
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    dismissToast();
+  }, duration);
+}
+
+function dismissToast() {
+  const toast = document.getElementById("toast");
+  if (toast) {
     toast.classList.remove("show");
-  }, 3200);
+  }
+}
+
+// Reusable Dark Obsidian Linear Error Card
+function renderCustomErrorCard(options) {
+  const {
+    icon = "alert-triangle",
+    title = "Data Retrieval Interrupted",
+    message = "An unexpected error occurred while communicating with the service.",
+    actionText = "Try Again",
+    actionFn = null,
+    secondaryText = null,
+    secondaryFn = null
+  } = options || {};
+
+  return `
+    <div class="col-span-full p-8 text-center rounded-3xl custom-error-card space-y-4 my-2">
+      <div class="w-12 h-12 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+        <i data-lucide="${escapeHtml(icon)}" class="w-6 h-6"></i>
+      </div>
+      <div class="max-w-md mx-auto space-y-1.5">
+        <h4 class="text-sm font-bold text-white tracking-tight">${escapeHtml(title)}</h4>
+        <p class="text-xs text-zinc-400 leading-relaxed">${escapeHtml(message)}</p>
+      </div>
+      ${(actionText && actionFn) || (secondaryText && secondaryFn) ? `
+        <div class="flex items-center justify-center gap-2 pt-2">
+          ${actionText && actionFn ? `
+            <button onclick="${escapeHtml(actionFn)}" class="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-semibold text-xs transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(239,68,68,0.2)]">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+              <span>${escapeHtml(actionText)}</span>
+            </button>
+          ` : ""}
+          ${secondaryText && secondaryFn ? `
+            <button onclick="${escapeHtml(secondaryFn)}" class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 font-semibold text-xs transition-all flex items-center gap-1.5">
+              <span>${escapeHtml(secondaryText)}</span>
+            </button>
+          ` : ""}
+        </div>
+      ` : ""}
+    </div>
+  `;
 }

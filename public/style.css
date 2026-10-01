@@ -163,32 +163,53 @@ body {
   background: #3f3f46;
 }
 
-/* Toast Notification */
+/* Toast Notification Feedback (Linear / Sonner Tier) */
 #toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  background: rgba(18, 18, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  transform: translateY(100px);
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
   pointer-events: none;
 }
 
 #toast.show {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   opacity: 1;
+  pointer-events: auto;
+}
+
+#toast.toast-error {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 10px 35px -5px rgba(239, 68, 68, 0.25), 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+#toast.toast-warning {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 10px 35px -5px rgba(245, 158, 11, 0.25), 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+#toast.toast-success {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 10px 35px -5px rgba(16, 185, 129, 0.25), 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+#toast.toast-info {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 10px 35px -5px rgba(59, 130, 246, 0.25), 0 20px 50px rgba(0, 0, 0, 0.85);
+}
+
+@keyframes toast-shake {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  20%, 60% { transform: translateY(0) translateX(-5px); }
+  40%, 80% { transform: translateY(0) translateX(5px); }
+}
+
+.toast-shake {
+  animation: toast-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Custom Obsidian Error Card Component */
+.custom-error-card {
+  background: radial-gradient(ellipse at top, rgba(239, 68, 68, 0.08) 0%, rgba(13, 13, 16, 0.95) 75%);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* Modal Backdrops */

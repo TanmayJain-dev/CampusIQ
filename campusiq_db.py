@@ -358,6 +358,16 @@ def get_session(token: str) -> Optional[Dict[str, Any]]:
         if not row:
             return None
         d = dict(row)
+        expires_at = float(d.get("expires_at", 0))
+        # 30-day sliding session: If remaining lifespan is less than 20 days, extend back to 30 days
+        if expires_at - now < (86400 * 20):
+            new_expires_at = now + (86400 * 30)
+            if not USE_POSTGRES:
+                cursor.execute("UPDATE sessions SET expires_at = ? WHERE token = ?", (new_expires_at, token))
+            else:
+                cursor.execute("UPDATE sessions SET expires_at = %s WHERE token = %s", (new_expires_at, token))
+            conn.commit()
+
         try:
             user_data = json.loads(d["user_data"])
             # Refresh with latest user record

@@ -1591,10 +1591,15 @@
         </p>
       </div>
 
-      <!-- Error / Status Alert -->
-      <div id="edu-verify-error" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
-        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5 text-red-400"></i>
-        <div id="edu-verify-error-msg" class="leading-relaxed">Invalid credentials.</div>
+      <!-- Error / Status Alert (Custom Glass Obsidian Design) -->
+      <div id="edu-verify-error" class="hidden p-3.5 rounded-2xl bg-red-950/30 border border-red-500/30 text-xs flex items-start gap-3 shadow-[0_4px_20px_rgba(239,68,68,0.15)]">
+        <div class="w-6 h-6 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+        </div>
+        <div class="space-y-0.5">
+          <div class="font-bold text-red-300 text-xs">Verification Failed</div>
+          <div id="edu-verify-error-msg" class="text-[11px] text-red-400/90 leading-relaxed">Invalid credentials.</div>
+        </div>
       </div>
 
       <!-- Edumarshal Credentials Form -->
@@ -1663,10 +1668,20 @@
     </div>
   </div>
 
-  <!-- Toast Notification Feedback -->
-  <div id="toast">
-    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
-    <span id="toast-msg">Action completed successfully</span>
+  <!-- Toast Notification Feedback (Linear / Sonner Tier) -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[10000] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+    <div id="toast" class="pointer-events-auto flex items-start gap-3 p-3.5 rounded-2xl bg-[#0d0d10]/95 backdrop-blur-xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] text-white text-xs font-medium transform translate-y-8 opacity-0 transition-all duration-300 ease-out" role="alert">
+      <div id="toast-icon-wrap" class="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        <i id="toast-icon" data-lucide="info" class="w-4 h-4"></i>
+      </div>
+      <div class="flex-1 min-w-0 pr-1 pt-0.5">
+        <div id="toast-title" class="font-bold text-xs text-white leading-tight mb-0.5">Notification</div>
+        <div id="toast-msg" class="text-[11px] text-zinc-400 leading-relaxed break-words">Action completed successfully</div>
+      </div>
+      <button type="button" onclick="dismissToast()" class="shrink-0 p-1 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors" aria-label="Dismiss toast">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
   </div>
 
   <!-- Client Application Script -->

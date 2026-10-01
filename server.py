@@ -670,7 +670,8 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         host = self.headers.get("Host", "")
         proto = self.headers.get("X-Forwarded-Proto", "")
         is_https = "onrender.com" in host or proto == "https"
-        cookie = f"campusiq_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}"
+        expires_date = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time() + max_age))
+        cookie = f"campusiq_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}; Expires={expires_date}"
         if is_https:
             cookie += "; Secure"
         return cookie
@@ -1446,6 +1447,11 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         db = load_all_students_db()
         student = db.get(roll) if roll else None
 
+        session_token = user.get("session_token")
+        extra_headers = {}
+        if session_token:
+            extra_headers["Set-Cookie"] = self._get_session_cookie_header(session_token)
+
         self._send_json({
             "status": "success",
             "is_authenticated": True,
@@ -1453,7 +1459,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             "student": student,
             "is_verified": is_verified,
             "has_edumarshal": has_edumarshal
-        })
+        }, extra_headers=extra_headers if extra_headers else None)
 
     def handle_api_auth_current(self):
         self.handle_api_auth_me()
