@@ -68,6 +68,8 @@ VAULT_DRIVE_MAP_FILE = os.path.join(PROJECT_DIR, "data", "vault_drive_map.json")
 VAULT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "campusiq_vault_cache")
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
 _USERS: Dict[str, Dict[str, Any]] = {}
+ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "mait@admin2026")
+ACTIVE_ADMIN_SESSIONS: set = set()
 
 def load_vault_drive_map() -> Dict[str, Any]:
     if os.path.exists(VAULT_DRIVE_MAP_FILE):
@@ -558,7 +560,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         self.send_cors_headers = lambda: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Admin-Passcode",
         }
 
         # API Routes
@@ -608,6 +610,9 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api_examweb_demo()
         elif path == "/api/admin/students":
             self.handle_api_admin_students(params)
+        elif path.startswith("/api/admin/students/") and path.endswith("/full"):
+            roll_sub = path[len("/api/admin/students/"): -len("/full")].strip()
+            self.handle_api_admin_student_full(roll_sub)
         elif path.startswith("/api/admin/students/"):
             roll_sub = path.split("/api/admin/students/")[1].strip()
             self.handle_api_admin_student_detail(roll_sub)
@@ -625,10 +630,18 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         self.send_cors_headers = lambda: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Admin-Passcode",
         }
 
-        if path == "/api/examweb/login":
+        if path == "/api/admin/auth":
+            self.handle_api_admin_auth()
+        elif path == "/api/admin/student/update":
+            self.handle_api_admin_student_update()
+        elif path == "/api/admin/student/create":
+            self.handle_api_admin_student_create()
+        elif path == "/api/admin/student/delete":
+            self.handle_api_admin_student_delete()
+        elif path == "/api/examweb/login":
             self.handle_api_examweb_login()
         elif path == "/api/auth/config":
             self.handle_api_auth_config_update()
@@ -965,34 +978,122 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             "sample_students": students[:5]
         })
 
+    def _read_json_body(self) -> Dict[str, Any]:
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length <= 0:
+                return {}
+            body_bytes = self.rfile.read(length)
+            return json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+        except Exception:
+            return {}
+
+    def _is_admin_authenticated(self) -> bool:
+        # 1. Header X-Admin-Token
+        admin_token = self.headers.get("X-Admin-Token", "").strip()
+        if admin_token and admin_token in ACTIVE_ADMIN_SESSIONS:
+            return True
+
+        # 2. Header Authorization: Bearer adm_...
+        auth_hdr = self.headers.get("Authorization", "").strip()
+        if auth_hdr.startswith("Bearer "):
+            token = auth_hdr[7:].strip()
+            if token in ACTIVE_ADMIN_SESSIONS:
+                return True
+
+        # 3. Direct Master Key check in X-Admin-Passcode
+        passcode = self.headers.get("X-Admin-Passcode", "").strip()
+        if passcode and hmac.compare_digest(passcode, ADMIN_SECRET_KEY):
+            return True
+
+        return False
+
+    def handle_api_admin_auth(self):
+        payload = self._read_json_body()
+        passcode = str(payload.get("passcode", "")).strip() if payload else ""
+        if hmac.compare_digest(passcode, ADMIN_SECRET_KEY):
+            token = f"adm_{secrets.token_hex(24)}"
+            ACTIVE_ADMIN_SESSIONS.add(token)
+            self._send_json({
+                "status": "success",
+                "admin_token": token,
+                "token": token,
+                "message": "Admin master clearance authorized."
+            })
+        else:
+            self._send_json({
+                "status": "error",
+                "message": "Invalid admin security passcode."
+            }, 401)
+
     # 5. Admin Student Roster API (College Faculty & Administrators)
     def handle_api_admin_students(self, params: Dict[str, List[str]]):
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+
         db = load_all_students_db()
+        db_records = campusiq_db.get_all_student_records()
+        merged_db = dict(db)
+        for r_num, r_data in db_records.items():
+            if r_num not in merged_db:
+                merged_db[r_num] = r_data
+            else:
+                merged_db[r_num].update(r_data)
+
+        # Merge registered users who have a roll number
+        with campusiq_db.get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE roll_number IS NOT NULL AND roll_number != '';")
+            for u in cursor.fetchall():
+                u_row = dict(u)
+                r_num = u_row.get("roll_number", "").strip()
+                if r_num and r_num not in merged_db:
+                    merged_db[r_num] = {
+                        "roll_number": r_num,
+                        "name": u_row.get("name", "Student"),
+                        "father_name": "N/A",
+                        "institution_name": "Maharaja Agrasen Institute of Technology",
+                        "programme_name": f"B.Tech ({u_row.get('branch', 'CSE')})",
+                        "batch": "2023-2027",
+                        "semester": u_row.get("semester", 3),
+                        "branch": u_row.get("branch", "CSE"),
+                        "overall": {"cgpa": 0.0, "percentage": 0.0},
+                        "semesters": [],
+                        "backlogs": []
+                    }
+
         search = params.get("search", [""])[0].lower().strip()
         branch = params.get("branch", [""])[0].lower().strip()
 
         students_list = []
-        for roll, s in db.items():
-            if search and (search not in roll.lower() and search not in s.get("name", "").lower()):
+        for roll, s in merged_db.items():
+            if search and (search not in roll.lower() and search not in s.get("name", "").lower() and search not in s.get("email", "").lower()):
                 continue
-            if branch and branch not in s.get("programme_name", "").lower():
+            if branch and branch not in s.get("programme_name", "").lower() and branch not in s.get("branch", "").lower():
                 continue
+
+            att = s.get("attendance", {}).get("overall", {}) if isinstance(s.get("attendance"), dict) else {}
             students_list.append({
                 "roll_number": s["roll_number"],
                 "name": s["name"],
-                "father_name": s.get("father_name"),
-                "institution_name": s.get("institution_name"),
-                "programme_name": s.get("programme_name"),
-                "batch": s.get("batch"),
+                "father_name": s.get("father_name", ""),
+                "institution_name": s.get("institution_name", ""),
+                "programme_name": s.get("programme_name", ""),
+                "batch": s.get("batch", ""),
+                "semester": s.get("semester", 3),
+                "branch": s.get("branch", "CSE"),
+                "email": s.get("email", ""),
                 "cgpa": s.get("overall", {}).get("cgpa", 0.0),
                 "percentage": s.get("overall", {}).get("percentage", 0.0),
+                "attendance_percentage": att.get("percentage", 82.5),
                 "total_semesters": len(s.get("semesters", [])),
                 "backlogs_count": len(s.get("backlogs", [])),
                 "photo_base64": s.get("photo_base64", ""),
-                "last_synced": s.get("last_synced", "")
+                "last_synced": s.get("last_synced", s.get("last_updated_at", ""))
             })
 
-        students_list.sort(key=lambda x: x["cgpa"], reverse=True)
+        students_list.sort(key=lambda x: (x["cgpa"], x["name"]), reverse=True)
         self._send_json({
             "status": "success",
             "total_students": len(students_list),
@@ -1000,11 +1101,254 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         })
 
     def handle_api_admin_student_detail(self, roll: str):
-        record = get_student_by_roll(roll)
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+        record = campusiq_db.get_student_record(roll.strip()) or get_student_by_roll(roll.strip())
         if record:
             self._send_json({"status": "success", "found": True, "student": record})
         else:
             self._send_json({"status": "error", "message": f"Student {roll} not found in database"}, 404)
+
+    def handle_api_admin_student_full(self, roll: str):
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+
+        roll_clean = roll.strip()
+        record = campusiq_db.get_student_record(roll_clean) or get_student_by_roll(roll_clean)
+
+        if not record:
+            with campusiq_db.get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE roll_number = ?", (roll_clean,)) if not campusiq_db.USE_POSTGRES else \
+                    cursor.execute("SELECT * FROM users WHERE roll_number = %s", (roll_clean,))
+                u_row = cursor.fetchone()
+                if u_row:
+                    u_data = dict(u_row)
+                    record = {
+                        "roll_number": roll_clean,
+                        "name": u_data.get("name", "Student"),
+                        "father_name": "N/A",
+                        "institution_name": "Maharaja Agrasen Institute of Technology",
+                        "programme_name": f"B.Tech ({u_data.get('branch', 'CSE')})",
+                        "batch": "2023-2027",
+                        "semester": u_data.get("semester", 3),
+                        "branch": u_data.get("branch", "CSE"),
+                        "overall": {"cgpa": 0.0, "percentage": 0.0, "total_credits": 0},
+                        "semesters": [],
+                        "backlogs": []
+                    }
+
+        if not record:
+            self._send_json({"status": "error", "message": f"Student {roll} not found."}, 404)
+            return
+
+        # User account info
+        user_info = None
+        user_email = record.get("email")
+        if user_email:
+            user_info = campusiq_db.get_user(user_email)
+        if not user_info:
+            with campusiq_db.get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE roll_number = ?", (roll_clean,)) if not campusiq_db.USE_POSTGRES else \
+                    cursor.execute("SELECT * FROM users WHERE roll_number = %s", (roll_clean,))
+                u_row = cursor.fetchone()
+                if u_row:
+                    user_info = dict(u_row)
+
+        if user_info and "is_verified" in user_info:
+            record["is_verified"] = user_info["is_verified"]
+            record["email"] = user_info.get("email", record.get("email", ""))
+
+        # Ensure attendance structure exists
+        if "attendance" not in record or not isinstance(record["attendance"], dict):
+            record["attendance"] = {
+                "overall": {
+                    "percentage": 82.5,
+                    "present": 99,
+                    "total": 120,
+                    "absent": 21,
+                    "bunk_buffer": 9
+                },
+                "courses": [
+                    {"name": "Data Structures", "code": "CIC-209", "percentage": 85.0, "present": 34, "total": 40},
+                    {"name": "Object Oriented Programming (C++)", "code": "CIC-211", "percentage": 80.0, "present": 32, "total": 40},
+                    {"name": "Computational Methods", "code": "ES-201", "percentage": 78.0, "present": 31, "total": 40}
+                ]
+            }
+
+        self._send_json({
+            "status": "success",
+            "student": record,
+            "user": user_info
+        })
+
+    def handle_api_admin_student_update(self):
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+
+        payload = self._read_json_body()
+        if not payload or not isinstance(payload, dict):
+            self._send_json({"status": "error", "message": "Invalid request payload."}, 400)
+            return
+
+        roll_number = str(payload.get("roll_number", "")).strip()
+        if not roll_number:
+            self._send_json({"status": "error", "message": "roll_number is required."}, 400)
+            return
+
+        existing = campusiq_db.get_student_record(roll_number) or get_student_by_roll(roll_number) or {}
+
+        # Merge profile fields
+        for field in ("name", "father_name", "institution_name", "programme_name", "batch", "semester", "branch", "email"):
+            if field in payload:
+                existing[field] = payload[field]
+
+        # Results & Marksheet
+        if "overall" in payload and isinstance(payload["overall"], dict):
+            if "overall" not in existing or not isinstance(existing["overall"], dict):
+                existing["overall"] = {}
+            for k in ("cgpa", "percentage", "total_credits", "total_marks_obtained", "total_max_marks"):
+                if k in payload["overall"]:
+                    try:
+                        existing["overall"][k] = float(payload["overall"][k])
+                    except (ValueError, TypeError):
+                        existing["overall"][k] = payload["overall"][k]
+
+        if "semesters" in payload and isinstance(payload["semesters"], list):
+            existing["semesters"] = payload["semesters"]
+
+        if "backlogs" in payload and isinstance(payload["backlogs"], list):
+            existing["backlogs"] = payload["backlogs"]
+
+        # Attendance Overrides
+        if "attendance" in payload and isinstance(payload["attendance"], dict):
+            existing["attendance"] = payload["attendance"]
+
+        existing["roll_number"] = roll_number
+        existing["last_updated_by"] = "admin"
+        existing["last_updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+        # 1. Save to relational database
+        user_email = existing.get("email") or payload.get("email") or ""
+        campusiq_db.save_student_record(
+            roll_number=roll_number,
+            student_data=existing,
+            email=user_email,
+            name=existing.get("name", "")
+        )
+
+        # 2. Update user account if verification or profile changed
+        if user_email:
+            u = campusiq_db.get_user(user_email)
+            if u:
+                u["roll_number"] = roll_number
+                if "is_verified" in payload:
+                    u["is_verified"] = bool(payload["is_verified"])
+                if "name" in payload:
+                    u["name"] = payload["name"]
+                if "semester" in payload:
+                    u["semester"] = payload["semester"]
+                if "branch" in payload:
+                    u["branch"] = payload["branch"]
+                campusiq_db.save_user(u)
+
+        # 3. Synchronize with students_db.json
+        try:
+            full_db = load_all_students_db()
+            full_db[roll_number] = existing
+            os.makedirs(os.path.dirname(STUDENTS_DB_FILE), exist_ok=True)
+            with open(STUDENTS_DB_FILE, "w", encoding="utf-8") as f:
+                json.dump(full_db, f, indent=2)
+        except Exception as e:
+            print(f"[!] Warning: failed to write students_db.json: {e}")
+
+        self._send_json({
+            "status": "success",
+            "message": f"Successfully updated student records for {roll_number}.",
+            "student": existing
+        })
+
+    def handle_api_admin_student_create(self):
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+
+        payload = self._read_json_body()
+        roll = str(payload.get("roll_number", "")).strip()
+        name = str(payload.get("name", "")).strip()
+        if not roll or not name:
+            self._send_json({"status": "error", "message": "roll_number and name are required."}, 400)
+            return
+
+        new_record = {
+            "roll_number": roll,
+            "name": name,
+            "father_name": payload.get("father_name", ""),
+            "institution_name": payload.get("institution_name", "Maharaja Agrasen Institute of Technology"),
+            "programme_name": payload.get("programme_name", f"B.Tech ({payload.get('branch', 'CSE')})"),
+            "batch": payload.get("batch", "2023-2027"),
+            "semester": int(payload.get("semester", 3)),
+            "branch": payload.get("branch", "CSE"),
+            "email": payload.get("email", ""),
+            "overall": {
+                "cgpa": float(payload.get("cgpa") if "cgpa" in payload else (payload.get("overall", {}).get("cgpa", 0.0) if isinstance(payload.get("overall"), dict) else 0.0)),
+                "percentage": float(payload.get("percentage") if "percentage" in payload else (payload.get("overall", {}).get("percentage", 0.0) if isinstance(payload.get("overall"), dict) else 0.0)),
+                "total_credits": int(payload.get("total_credits") if "total_credits" in payload else (payload.get("overall", {}).get("total_credits", 0) if isinstance(payload.get("overall"), dict) else 0))
+            },
+            "semesters": payload.get("semesters", []),
+            "backlogs": payload.get("backlogs", []),
+            "attendance": payload.get("attendance", {
+                "overall": {"percentage": 75.0, "present": 75, "total": 100, "bunk_buffer": 0},
+                "courses": []
+            }),
+            "created_by": "admin",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        }
+
+        campusiq_db.save_student_record(roll, new_record, email=payload.get("email", ""), name=name)
+        try:
+            full_db = load_all_students_db()
+            full_db[roll] = new_record
+            with open(STUDENTS_DB_FILE, "w", encoding="utf-8") as f:
+                json.dump(full_db, f, indent=2)
+        except Exception:
+            pass
+
+        self._send_json({
+            "status": "success",
+            "message": f"Student dossier created for {roll}.",
+            "student": new_record
+        }, 201)
+
+    def handle_api_admin_student_delete(self):
+        if not self._is_admin_authenticated():
+            self._send_json({"status": "error", "message": "Admin clearance required."}, 401)
+            return
+
+        payload = self._read_json_body()
+        roll = str(payload.get("roll_number", "")).strip()
+        if not roll:
+            self._send_json({"status": "error", "message": "roll_number is required."}, 400)
+            return
+
+        campusiq_db.delete_student_record(roll)
+        try:
+            full_db = load_all_students_db()
+            if roll in full_db:
+                del full_db[roll]
+                with open(STUDENTS_DB_FILE, "w", encoding="utf-8") as f:
+                    json.dump(full_db, f, indent=2)
+        except Exception:
+            pass
+
+        self._send_json({
+            "status": "success",
+            "message": f"Student record for {roll} deleted."
+        })
 
     # 6. Published Results Portal Scraper
     def handle_api_portal(self, params: Dict[str, List[str]]):

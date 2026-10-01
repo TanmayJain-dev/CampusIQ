@@ -457,4 +457,43 @@ body {
   }
 }
 
-
+/* ==========================================================================
+   Stealth Admin Console & Student Editor Styles (Obsidian / Red Accents)
+   ========================================================================== */
+.admin-editor-tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.admin-editor-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.admin-editor-tab-btn.active {
+  color: #ffffff;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 15px -3px rgba(239, 68, 68, 0.2);
+}
+.admin-editor-pane {
+  display: none;
+}
+.admin-editor-pane.active {
+  display: block;
+}
+.terminal-glow {
+  box-shadow: 0 0 45px -5px rgba(239, 68, 68, 0.25);
+}
+.admin-code-editor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  tab-size: 2;
+}

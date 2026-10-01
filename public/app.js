@@ -110,7 +110,10 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchCurrentUser();
   loadAuthConfig();
   fetchDirectoryStudents();
-  loadAdminRoster();
+  if (isAdminAuthenticated()) {
+    loadAdminRoster();
+  }
+  checkAdminHashRoute();
   fetchStats();
   initExamWebSession();
   lucide.createIcons();
@@ -133,6 +136,10 @@ function switchTab(tabId) {
     initExamWebSession();
   }
   if (tabId === "admin") {
+    if (!isAdminAuthenticated()) {
+      openAdminAuthModal();
+      return;
+    }
     loadAdminRoster();
   }
   if (tabId === "community") {
@@ -2014,21 +2021,196 @@ function closeDayInspectionModalOnBackdrop(e) {
   }
 }
 
-async function loadAdminRoster() {
+// =============================================================================
+// STEALTH ADMIN COMMAND CENTER & STUDENT RECORDS LIVE EDITOR
+// =============================================================================
+
+let adminSecretClickCount = 0;
+let adminSecretClickTimer = null;
+let currentEditingStudent = null;
+let currentEditingStudentRoll = null;
+
+function isAdminAuthenticated() {
+  return !!sessionStorage.getItem("campusiq_admin_token");
+}
+
+function getAdminToken() {
+  return sessionStorage.getItem("campusiq_admin_token") || "";
+}
+
+function getAdminAuthHeaders() {
+  const token = getAdminToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) {
+    headers["X-Admin-Token"] = token;
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+// 1. Stealth Access Triggers
+function handleSecretAdminTrigger() {
+  adminSecretClickCount++;
+  clearTimeout(adminSecretClickTimer);
+  adminSecretClickTimer = setTimeout(() => {
+    adminSecretClickCount = 0;
+  }, 1200);
+
+  if (adminSecretClickCount >= 3) {
+    adminSecretClickCount = 0;
+    triggerAdminPanelAccess();
+  }
+}
+
+function triggerAdminPanelAccess() {
+  if (isAdminAuthenticated()) {
+    switchTab("admin");
+    showToast("Master Admin Console Active", "success", "Security Clearance");
+  } else {
+    openAdminAuthModal();
+  }
+}
+
+function checkAdminHashRoute() {
+  if (window.location.hash === "#admin" || window.location.hash === "#admin-console") {
+    triggerAdminPanelAccess();
+  }
+}
+
+window.addEventListener("hashchange", checkAdminHashRoute);
+
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "A" || e.key === "a")) {
+    e.preventDefault();
+    triggerAdminPanelAccess();
+  }
+});
+
+// Console backdoor access for power-users
+window.openAdminPanel = triggerAdminPanelAccess;
+
+// 2. Authentication Clearance Modal
+function openAdminAuthModal() {
+  const modal = document.getElementById("admin-auth-modal");
+  const input = document.getElementById("admin-passcode-input");
+  const err = document.getElementById("admin-auth-error");
+  if (err) err.classList.add("hidden");
+  if (input) input.value = "";
+  if (modal) modal.classList.remove("hidden");
+  setTimeout(() => { if (input) input.focus(); }, 100);
+}
+
+function closeAdminAuthModal() {
+  const modal = document.getElementById("admin-auth-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function togglePasscodeVisibility() {
+  const input = document.getElementById("admin-passcode-input");
+  const eye = document.getElementById("admin-passcode-eye");
+  if (!input) return;
+  if (input.type === "password") {
+    input.type = "text";
+    if (eye) eye.setAttribute("data-lucide", "eye-off");
+  } else {
+    input.type = "password";
+    if (eye) eye.setAttribute("data-lucide", "eye");
+  }
+  lucide.createIcons();
+}
+
+async function submitAdminPasscode(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById("admin-passcode-input");
+  const btn = document.getElementById("btn-admin-auth-submit");
+  const err = document.getElementById("admin-auth-error");
+  const passcode = input ? input.value.trim() : "";
+
+  if (!passcode) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Verifying...</span>`;
+    lucide.createIcons();
+  }
+  if (err) err.classList.add("hidden");
+
+  try {
+    const res = await fetch("/api/admin/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode })
+    });
+    const data = await res.json();
+
+    const adminToken = data.token || data.admin_token;
+    if (res.ok && data.status === "success" && adminToken) {
+      sessionStorage.setItem("campusiq_admin_token", adminToken);
+      closeAdminAuthModal();
+      switchTab("admin");
+      loadAdminRoster(true);
+      showToast("Security clearance verified. Master admin console unlocked.", "success", "Clearance Granted");
+    } else {
+      if (err) {
+        err.textContent = data.message || "Invalid master security passcode. Clearance rejected.";
+        err.classList.remove("hidden");
+      }
+      showToast("Invalid administrative credentials.", "error", "Security Breach Attempt");
+    }
+  } catch (e) {
+    console.error("Admin auth failed:", e);
+    if (err) {
+      err.textContent = "Authentication server unreachable. Verify network connection.";
+      err.classList.remove("hidden");
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="key" class="w-3.5 h-3.5"></i><span>Unlock Console</span>`;
+      lucide.createIcons();
+    }
+  }
+}
+
+function lockAdminPanel() {
+  sessionStorage.removeItem("campusiq_admin_token");
+  if (window.location.hash === "#admin" || window.location.hash === "#admin-console") {
+    history.replaceState(null, "", " ");
+  }
+  switchTab("results");
+  showToast("Master administrative terminal locked and session cleared.", "info", "Console Locked");
+}
+
+// 3. Admin Roster Loader & Filtering
+async function loadAdminRoster(force = false) {
   const grid = document.getElementById("admin-students-grid");
   const emptyState = document.getElementById("admin-empty-state");
   if (!grid) return;
 
+  if (!isAdminAuthenticated()) {
+    openAdminAuthModal();
+    return;
+  }
+
   grid.innerHTML = `
-    <div class="col-span-full py-12 text-center text-zinc-500 flex items-center justify-center gap-2">
-      <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-emerald-400"></i>
-      <span>Loading student academic dossiers...</span>
+    <div class="col-span-full py-16 text-center text-zinc-500 flex flex-col items-center justify-center gap-3">
+      <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-red-500"></i>
+      <span class="font-mono text-xs text-zinc-400">Querying database registry and decrypting student dossiers...</span>
     </div>
   `;
   lucide.createIcons();
 
   try {
-    const res = await fetch("/api/admin/students");
+    const res = await fetch("/api/admin/students", {
+      headers: getAdminAuthHeaders()
+    });
+
+    if (res.status === 401) {
+      sessionStorage.removeItem("campusiq_admin_token");
+      openAdminAuthModal();
+      return;
+    }
+
     const data = await res.json();
     const students = data.students || [];
     state.adminStudents = students;
@@ -2058,11 +2240,9 @@ async function loadAdminRoster() {
         title: "Academic Roster Unavailable",
         message: "Failed to load student dossiers from registry. Please verify database connection or retry.",
         actionText: "Reload Roster",
-        actionFn: "loadAdminRoster()"
+        actionFn: "loadAdminRoster(true)"
       });
-      if (window.lucide && typeof window.lucide.createIcons === "function") {
-        window.lucide.createIcons();
-      }
+      lucide.createIcons();
       showToast("Failed to load academic dossiers", "error", "Roster Error");
     }
   }
@@ -2080,7 +2260,9 @@ function filterAdminRoster() {
     filtered = filtered.filter(s => 
       (s.name && s.name.toLowerCase().includes(query)) ||
       (s.roll_number && s.roll_number.toLowerCase().includes(query)) ||
-      (s.programme_name && s.programme_name.toLowerCase().includes(query))
+      (s.email && s.email.toLowerCase().includes(query)) ||
+      (s.programme_name && s.programme_name.toLowerCase().includes(query)) ||
+      (s.branch && s.branch.toLowerCase().includes(query))
     );
   }
 
@@ -2111,34 +2293,37 @@ function renderAdminStudents(students) {
     const initial = s.name ? s.name.charAt(0).toUpperCase() : "S";
 
     return `
-      <div class="p-5 rounded-2xl glass-card border border-white/10 hover:border-emerald-500/30 transition-all flex flex-col justify-between space-y-4 shadow-lg group">
+      <div class="p-5 rounded-3xl glass-card border border-white/10 hover:border-red-500/40 transition-all flex flex-col justify-between space-y-4 shadow-lg group">
         
         <!-- Header: Student Avatar & Info -->
         <div class="flex items-start gap-3.5">
-          <div class="w-14 h-16 rounded-xl bg-zinc-900 border border-white/15 overflow-hidden shrink-0 flex items-center justify-center shadow-md">
+          <div class="w-14 h-16 rounded-2xl bg-zinc-900 border border-white/15 overflow-hidden shrink-0 flex items-center justify-center shadow-md">
             ${s.photo_base64 ? `
               <img src="${s.photo_base64}" alt="${s.name}" class="w-full h-full object-cover">
             ` : `
-              <span class="text-xl font-bold font-mono text-zinc-400 group-hover:text-emerald-400 transition-colors">${initial}</span>
+              <span class="text-xl font-bold font-mono text-zinc-400 group-hover:text-red-400 transition-colors">${initial}</span>
             `}
           </div>
 
           <div class="overflow-hidden flex-1 min-w-0">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-mono font-bold text-xs text-emerald-400 tracking-wider">${s.roll_number}</span>
+              <span class="font-mono font-bold text-xs text-red-400 tracking-wider">${s.roll_number}</span>
               ${isClean ? `
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GOOD STANDING</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">GOOD STANDING</span>
               ` : `
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 font-bold">${s.backlogs_count} BACKLOG(S)</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 font-bold">${s.backlogs_count} BACKLOG(S)</span>
               `}
+              ${s.is_verified ? `
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">VERIFIED</span>
+              ` : ''}
             </div>
             <h3 class="text-sm font-bold text-white truncate mt-0.5">${s.name}</h3>
             <p class="text-[11px] text-zinc-400 truncate">${s.programme_name || 'B.Tech (CSE)'}</p>
-            <p class="text-[10px] text-zinc-500 truncate">${s.institution_name || 'MAIT'} • Batch ${s.batch || 2025}</p>
+            <p class="text-[10px] text-zinc-500 truncate">${s.institution_name || 'MAIT'} • Sem ${s.semester || 3}</p>
           </div>
         </div>
 
-        <!-- Academic Metrics -->
+        <!-- Academic & Attendance Metrics -->
         <div class="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-zinc-950/70 border border-white/5 text-center">
           <div>
             <span class="block text-[10px] font-mono text-zinc-500 uppercase">CGPA</span>
@@ -2146,19 +2331,23 @@ function renderAdminStudents(students) {
           </div>
           <div>
             <span class="block text-[10px] font-mono text-zinc-500 uppercase">Agg. %</span>
-            <span class="text-sm font-bold font-mono text-white">${(s.percentage || 0).toFixed(1)}%</span>
+            <span class="text-sm font-bold font-mono text-emerald-400">${(s.percentage || 0).toFixed(1)}%</span>
           </div>
           <div>
-            <span class="block text-[10px] font-mono text-zinc-500 uppercase">Sems</span>
-            <span class="text-sm font-bold font-mono text-zinc-300">${s.total_semesters || 2}</span>
+            <span class="block text-[10px] font-mono text-zinc-500 uppercase">Semesters</span>
+            <span class="text-sm font-bold font-mono text-zinc-300">${s.total_semesters || s.semester || 1}</span>
           </div>
         </div>
 
-        <!-- Action Button -->
-        <div class="pt-1">
-          <button onclick="inspectStudentDossier('${s.roll_number}')" class="w-full py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-emerald-600/20 hover:border-emerald-500/40 border border-white/10 text-zinc-300 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i data-lucide="file-text" class="w-3.5 h-3.5 text-emerald-400"></i>
-            <span>Inspect Full Dossier</span>
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="openAdminStudentEditor('${s.roll_number}')" class="py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Live Edit</span>
+          </button>
+          <button onclick="inspectStudentDossier('${s.roll_number}')" class="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-400"></i>
+            <span>Marksheet</span>
           </button>
         </div>
 
@@ -2172,10 +2361,11 @@ function renderAdminStudents(students) {
 async function inspectStudentDossier(roll) {
   showToast(`Loading academic dossier for ${roll}...`);
   try {
-    const res = await fetch(`/api/admin/students/${roll}`);
+    const res = await fetch(`/api/admin/students/${roll}`, {
+      headers: getAdminAuthHeaders()
+    });
     const data = await res.json();
     if (data.status === "success" && data.student) {
-      // Switch to results tab & render official marksheet
       switchTab("results");
       switchResultMode("examweb");
       renderOfficialMarksheet(data.student, "all");
@@ -2188,6 +2378,647 @@ async function inspectStudentDossier(roll) {
     showToast("Error inspecting student dossier.");
   }
 }
+
+// 4. Deep Multi-Tab Student Editor Controller
+async function openAdminStudentEditor(roll) {
+  showToast(`Opening editor for ${roll}...`, "info", "Student Editor");
+  currentEditingStudentRoll = roll;
+
+  try {
+    const res = await fetch(`/api/admin/students/${roll}/full`, {
+      headers: getAdminAuthHeaders()
+    });
+
+    if (res.status === 401) {
+      sessionStorage.removeItem("campusiq_admin_token");
+      openAdminAuthModal();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok || data.status !== "success" || !data.student) {
+      showToast(data.message || `Failed to fetch ground truth for ${roll}`, "error", "Editor Error");
+      return;
+    }
+
+    currentEditingStudent = data.student;
+
+    // Header updates
+    const titleEl = document.getElementById("admin-editor-title");
+    const badgeEl = document.getElementById("admin-editor-roll-badge");
+    if (titleEl) titleEl.textContent = `Editing: ${currentEditingStudent.name || 'Student'}`;
+    if (badgeEl) badgeEl.textContent = roll;
+
+    // Populate Tab 1: Profile & Identity
+    const sObj = currentEditingStudent.student || currentEditingStudent;
+    document.getElementById("admin-edit-roll").value = roll;
+    document.getElementById("admin-edit-name").value = sObj.name || "";
+    document.getElementById("admin-edit-father").value = sObj.father_name || "";
+    document.getElementById("admin-edit-email").value = currentEditingStudent.email || "";
+    document.getElementById("admin-edit-branch").value = currentEditingStudent.branch || sObj.branch || "CSE";
+    document.getElementById("admin-edit-programme").value = sObj.programme_name || "";
+    document.getElementById("admin-edit-semester").value = currentEditingStudent.semester || sObj.semester || 3;
+    document.getElementById("admin-edit-batch").value = sObj.batch || "2023-2027";
+    document.getElementById("admin-edit-institution").value = sObj.institution_name || "MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY";
+    
+    const verifiedCheckbox = document.getElementById("admin-edit-is-verified");
+    if (verifiedCheckbox) {
+      verifiedCheckbox.checked = !!(currentEditingStudent.is_verified || (data.user && data.user.is_verified));
+    }
+
+    // Populate Tab 2: Results & Marksheet
+    const ov = currentEditingStudent.overall || {};
+    document.getElementById("admin-edit-cgpa").value = (ov.cgpa !== undefined ? ov.cgpa : 8.5).toFixed(2);
+    document.getElementById("admin-edit-percentage").value = (ov.percentage !== undefined ? ov.percentage : 80.0).toFixed(1);
+    document.getElementById("admin-edit-backlogs").value = (currentEditingStudent.backlogs || []).length;
+    document.getElementById("admin-edit-credits").value = ov.total_credits || 50;
+
+    renderAdminEditorSemesters();
+
+    // Populate Tab 3: Attendance Radar
+    const att = currentEditingStudent.attendance || {};
+    const attOv = att.overall || {};
+    document.getElementById("admin-edit-att-pct").value = (attOv.percentage !== undefined ? attOv.percentage : 85.0).toFixed(1);
+    document.getElementById("admin-edit-att-present").value = attOv.present !== undefined ? attOv.present : 85;
+    document.getElementById("admin-edit-att-total").value = attOv.total !== undefined ? attOv.total : 100;
+    document.getElementById("admin-edit-att-margin").value = attOv.bunk_buffer !== undefined ? attOv.bunk_buffer : 5;
+
+    renderAdminEditorCourses();
+
+    // Populate Tab 4: Raw JSON
+    const jsonArea = document.getElementById("admin-edit-raw-json");
+    if (jsonArea) {
+      jsonArea.value = JSON.stringify(currentEditingStudent, null, 2);
+    }
+
+    // Reset to profile tab
+    switchAdminEditorTab("profile");
+
+    // Open Modal
+    const modal = document.getElementById("admin-student-editor-modal");
+    if (modal) modal.classList.remove("hidden");
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error("Open admin student editor failed:", err);
+    showToast("Error opening student editor.", "error", "Editor Exception");
+  }
+}
+
+function closeAdminStudentEditorModal() {
+  const modal = document.getElementById("admin-student-editor-modal");
+  if (modal) modal.classList.add("hidden");
+  currentEditingStudent = null;
+  currentEditingStudentRoll = null;
+}
+
+function switchAdminEditorTab(tabName) {
+  const tabs = ["profile", "results", "attendance", "json"];
+  
+  // Sync changes if switching to or from json
+  if (tabName === "json") {
+    syncAdminEditorFieldsToMemory();
+    const jsonArea = document.getElementById("admin-edit-raw-json");
+    if (jsonArea && currentEditingStudent) {
+      jsonArea.value = JSON.stringify(currentEditingStudent, null, 2);
+    }
+  }
+
+  tabs.forEach(t => {
+    const btn = document.getElementById(`admin-tab-btn-${t}`);
+    const pane = document.getElementById(`admin-pane-${t}`);
+    if (btn) {
+      if (t === tabName) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    }
+    if (pane) {
+      if (t === tabName) {
+        pane.classList.add("active");
+      } else {
+        pane.classList.remove("active");
+      }
+    }
+  });
+
+  lucide.createIcons();
+}
+
+function syncAdminEditorFieldsToMemory() {
+  if (!currentEditingStudent) return;
+  const sObj = currentEditingStudent.student || currentEditingStudent;
+
+  // Profile
+  currentEditingStudent.name = document.getElementById("admin-edit-name").value.trim();
+  sObj.name = currentEditingStudent.name;
+  currentEditingStudent.father_name = document.getElementById("admin-edit-father").value.trim();
+  sObj.father_name = currentEditingStudent.father_name;
+  currentEditingStudent.email = document.getElementById("admin-edit-email").value.trim();
+  currentEditingStudent.branch = document.getElementById("admin-edit-branch").value.trim();
+  sObj.branch = currentEditingStudent.branch;
+  currentEditingStudent.programme_name = document.getElementById("admin-edit-programme").value.trim();
+  sObj.programme_name = currentEditingStudent.programme_name;
+  currentEditingStudent.semester = parseInt(document.getElementById("admin-edit-semester").value, 10) || 1;
+  sObj.semester = currentEditingStudent.semester;
+  currentEditingStudent.batch = document.getElementById("admin-edit-batch").value.trim();
+  sObj.batch = currentEditingStudent.batch;
+  currentEditingStudent.institution_name = document.getElementById("admin-edit-institution").value.trim();
+  sObj.institution_name = currentEditingStudent.institution_name;
+  currentEditingStudent.is_verified = document.getElementById("admin-edit-is-verified").checked;
+
+  // Results
+  if (!currentEditingStudent.overall) currentEditingStudent.overall = {};
+  currentEditingStudent.overall.cgpa = parseFloat(document.getElementById("admin-edit-cgpa").value) || 0.0;
+  currentEditingStudent.overall.percentage = parseFloat(document.getElementById("admin-edit-percentage").value) || 0.0;
+  currentEditingStudent.overall.total_credits = parseInt(document.getElementById("admin-edit-credits").value, 10) || 0;
+
+  // Attendance
+  if (!currentEditingStudent.attendance) currentEditingStudent.attendance = { overall: {}, courses: [] };
+  if (!currentEditingStudent.attendance.overall) currentEditingStudent.attendance.overall = {};
+  currentEditingStudent.attendance.overall.percentage = parseFloat(document.getElementById("admin-edit-att-pct").value) || 0.0;
+  currentEditingStudent.attendance.overall.present = parseInt(document.getElementById("admin-edit-att-present").value, 10) || 0;
+  currentEditingStudent.attendance.overall.total = parseInt(document.getElementById("admin-edit-att-total").value, 10) || 0;
+  currentEditingStudent.attendance.overall.bunk_buffer = parseInt(document.getElementById("admin-edit-att-margin").value, 10) || 0;
+}
+
+// 5. Semester & Paper Breakdown Renderers
+function renderAdminEditorSemesters() {
+  const container = document.getElementById("admin-editor-semesters-list");
+  if (!container || !currentEditingStudent) return;
+
+  const semesters = currentEditingStudent.semesters || [];
+
+  if (!semesters.length) {
+    container.innerHTML = `
+      <div class="p-6 text-center rounded-2xl bg-zinc-900/40 border border-white/5 space-y-2">
+        <p class="text-xs text-zinc-400">No semester results recorded yet.</p>
+        <button type="button" onclick="addAdminEditorSemester()" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold">
+          Add Semester 1
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = semesters.map((sem, semIdx) => {
+    const semNum = sem.semester_number || sem.semester || (semIdx + 1);
+    const sgpa = (sem.sgpa !== undefined ? sem.sgpa : 0.0).toFixed(2);
+    const credits = sem.credits_secured || sem.credits || 25;
+    const papers = sem.papers || [];
+
+    return `
+      <div class="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+          <div class="flex items-center gap-3">
+            <span class="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-mono font-bold">
+              Semester ${semNum}
+            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-zinc-400 font-mono">SGPA:</span>
+              <input type="number" step="0.01" min="0" max="10" value="${sgpa}" onchange="updateSemesterSgpa(${semIdx}, this.value)" class="w-20 px-2 py-1 rounded-lg bg-zinc-950 border border-white/10 text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-red-500">
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-zinc-400 font-mono">Credits:</span>
+              <input type="number" min="0" max="40" value="${credits}" onchange="updateSemesterCredits(${semIdx}, this.value)" class="w-16 px-2 py-1 rounded-lg bg-zinc-950 border border-white/10 text-xs font-mono font-bold text-white focus:outline-none focus:border-red-500">
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="addAdminEditorSubject(${semIdx})" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1 transition-all">
+              <i data-lucide="plus" class="w-3 h-3 text-emerald-400"></i>
+              <span>Add Subject</span>
+            </button>
+            <button type="button" onclick="removeAdminEditorSemester(${semIdx})" class="p-1 rounded-lg text-zinc-400 hover:text-red-400 transition-all" title="Delete Semester">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Papers Table -->
+        <div class="overflow-x-auto scrollbar-none">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-white/5">
+                <th class="pb-2 font-medium">Code</th>
+                <th class="pb-2 font-medium">Paper Name</th>
+                <th class="pb-2 font-medium text-center">Credits</th>
+                <th class="pb-2 font-medium text-center">Marks</th>
+                <th class="pb-2 font-medium text-center">Grade</th>
+                <th class="pb-2 font-medium text-center">Status</th>
+                <th class="pb-2 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              ${papers.map((p, pIdx) => `
+                <tr class="hover:bg-white/[0.02]">
+                  <td class="py-2 pr-2">
+                    <input type="text" value="${p.paper_code || ''}" onchange="updatePaperField(${semIdx}, ${pIdx}, 'paper_code', this.value)" class="w-24 px-2 py-1 rounded-lg bg-zinc-950 border border-white/10 text-[11px] font-mono text-emerald-400">
+                  </td>
+                  <td class="py-2 pr-2">
+                    <input type="text" value="${p.paper_title || p.paper_name || ''}" onchange="updatePaperField(${semIdx}, ${pIdx}, 'paper_title', this.value)" class="w-full min-w-[160px] px-2 py-1 rounded-lg bg-zinc-950 border border-white/10 text-[11px] text-zinc-200">
+                  </td>
+                  <td class="py-2 px-2 text-center">
+                    <input type="number" min="0" max="10" value="${p.credits || 4}" onchange="updatePaperField(${semIdx}, ${pIdx}, 'credits', parseInt(this.value, 10))" class="w-12 px-1.5 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-[11px] font-mono text-zinc-300">
+                  </td>
+                  <td class="py-2 px-2 text-center">
+                    <input type="number" min="0" max="100" value="${p.total_marks || p.total || 80}" onchange="updatePaperField(${semIdx}, ${pIdx}, 'total_marks', parseFloat(this.value))" class="w-14 px-1.5 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-[11px] font-mono font-bold text-white">
+                  </td>
+                  <td class="py-2 px-2 text-center">
+                    <input type="text" value="${p.grade || 'A'}" onchange="updatePaperField(${semIdx}, ${pIdx}, 'grade', this.value.toUpperCase())" class="w-12 px-1.5 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-[11px] font-mono font-bold text-blue-400">
+                  </td>
+                  <td class="py-2 px-2 text-center">
+                    <select onchange="updatePaperField(${semIdx}, ${pIdx}, 'status', this.value)" class="px-2 py-1 rounded-lg bg-zinc-950 border border-white/10 text-[10px] font-mono text-zinc-300">
+                      <option value="PASS" ${(p.status || 'PASS') === 'PASS' ? 'selected' : ''}>PASS</option>
+                      <option value="FAIL" ${(p.status) === 'FAIL' ? 'selected' : ''}>FAIL</option>
+                    </select>
+                  </td>
+                  <td class="py-2 text-right">
+                    <button type="button" onclick="removeAdminEditorSubject(${semIdx}, ${pIdx})" class="p-1 text-zinc-500 hover:text-red-400 transition-all">
+                      <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  lucide.createIcons();
+}
+
+function updateSemesterSgpa(semIdx, val) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  currentEditingStudent.semesters[semIdx].sgpa = parseFloat(val) || 0.0;
+}
+
+function updateSemesterCredits(semIdx, val) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  currentEditingStudent.semesters[semIdx].credits_secured = parseInt(val, 10) || 0;
+}
+
+function updatePaperField(semIdx, pIdx, field, val) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  const paper = currentEditingStudent.semesters[semIdx].papers[pIdx];
+  if (!paper) return;
+  paper[field] = val;
+  if (field === 'paper_title') paper.paper_name = val;
+}
+
+function addAdminEditorSemester() {
+  if (!currentEditingStudent) return;
+  if (!currentEditingStudent.semesters) currentEditingStudent.semesters = [];
+  const nextNum = currentEditingStudent.semesters.length + 1;
+  currentEditingStudent.semesters.push({
+    semester_number: nextNum,
+    sgpa: 8.5,
+    credits_secured: 25,
+    papers: [
+      { paper_code: `CS-${nextNum}01`, paper_title: "Core Subject 1", credits: 4, minor_marks: 20, major_marks: 60, total_marks: 80, grade: "A", status: "PASS" }
+    ]
+  });
+  renderAdminEditorSemesters();
+}
+
+function removeAdminEditorSemester(semIdx) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  currentEditingStudent.semesters.splice(semIdx, 1);
+  renderAdminEditorSemesters();
+}
+
+function addAdminEditorSubject(semIdx) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  const sem = currentEditingStudent.semesters[semIdx];
+  if (!sem) return;
+  if (!sem.papers) sem.papers = [];
+  sem.papers.push({
+    paper_code: `SUB-${sem.papers.length + 1}`,
+    paper_title: "New Subject Course",
+    credits: 4,
+    minor_marks: 20,
+    major_marks: 60,
+    total_marks: 80,
+    grade: "A",
+    status: "PASS"
+  });
+  renderAdminEditorSemesters();
+}
+
+function removeAdminEditorSubject(semIdx, pIdx) {
+  if (!currentEditingStudent || !currentEditingStudent.semesters) return;
+  const sem = currentEditingStudent.semesters[semIdx];
+  if (!sem || !sem.papers) return;
+  sem.papers.splice(pIdx, 1);
+  renderAdminEditorSemesters();
+}
+
+// 6. Course-wise Attendance Overrides
+function renderAdminEditorCourses() {
+  const container = document.getElementById("admin-editor-courses-list");
+  if (!container || !currentEditingStudent) return;
+
+  const att = currentEditingStudent.attendance || {};
+  const courses = att.courses || [];
+
+  if (!courses.length) {
+    container.innerHTML = `
+      <div class="p-6 text-center rounded-2xl bg-zinc-900/40 border border-white/5 space-y-2">
+        <p class="text-xs text-zinc-400">No subject course attendance overrides recorded.</p>
+        <button type="button" onclick="addAdminEditorCourse()" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">
+          Add Subject Attendance
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = courses.map((c, idx) => `
+    <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex-1 min-w-0">
+        <input type="text" value="${c.name || ''}" placeholder="Course Name" onchange="updateCourseField(${idx}, 'name', this.value)" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/10 text-xs text-white">
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] font-mono text-zinc-400">Attended:</span>
+          <input type="number" min="0" value="${c.present !== undefined ? c.present : 30}" onchange="updateCoursePresent(${idx}, this.value)" class="w-16 px-2 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-xs font-mono font-bold text-white">
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] font-mono text-zinc-400">Total:</span>
+          <input type="number" min="1" value="${c.total !== undefined ? c.total : 35}" onchange="updateCourseTotal(${idx}, this.value)" class="w-16 px-2 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-xs font-mono font-bold text-zinc-300">
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] font-mono text-zinc-400">%</span>
+          <input type="number" step="0.1" min="0" max="100" id="admin-course-pct-${idx}" value="${(c.percentage !== undefined ? c.percentage : 85.0).toFixed(1)}" onchange="updateCourseField(${idx}, 'percentage', parseFloat(this.value))" class="w-16 px-2 py-1 text-center rounded-lg bg-zinc-950 border border-white/10 text-xs font-mono font-bold text-emerald-400">
+        </div>
+
+        <button type="button" onclick="removeAdminEditorCourse(${idx})" class="p-1.5 text-zinc-400 hover:text-red-400 transition-all" title="Delete Course">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+  `).join("");
+
+  lucide.createIcons();
+}
+
+function updateCourseField(idx, field, val) {
+  if (!currentEditingStudent || !currentEditingStudent.attendance || !currentEditingStudent.attendance.courses) return;
+  const course = currentEditingStudent.attendance.courses[idx];
+  if (!course) return;
+  course[field] = val;
+}
+
+function updateCoursePresent(idx, val) {
+  if (!currentEditingStudent || !currentEditingStudent.attendance || !currentEditingStudent.attendance.courses) return;
+  const course = currentEditingStudent.attendance.courses[idx];
+  if (!course) return;
+  course.present = parseInt(val, 10) || 0;
+  if (course.total > 0) {
+    course.percentage = parseFloat(((course.present / course.total) * 100).toFixed(1));
+    const pctInput = document.getElementById(`admin-course-pct-${idx}`);
+    if (pctInput) pctInput.value = course.percentage;
+  }
+}
+
+function updateCourseTotal(idx, val) {
+  if (!currentEditingStudent || !currentEditingStudent.attendance || !currentEditingStudent.attendance.courses) return;
+  const course = currentEditingStudent.attendance.courses[idx];
+  if (!course) return;
+  course.total = parseInt(val, 10) || 1;
+  if (course.total > 0) {
+    course.percentage = parseFloat(((course.present / course.total) * 100).toFixed(1));
+    const pctInput = document.getElementById(`admin-course-pct-${idx}`);
+    if (pctInput) pctInput.value = course.percentage;
+  }
+}
+
+function addAdminEditorCourse() {
+  if (!currentEditingStudent) return;
+  if (!currentEditingStudent.attendance) currentEditingStudent.attendance = { overall: {}, courses: [] };
+  if (!currentEditingStudent.attendance.courses) currentEditingStudent.attendance.courses = [];
+  currentEditingStudent.attendance.courses.push({
+    name: "New Course Subject",
+    code: "CIC-999",
+    percentage: 85.0,
+    present: 34,
+    total: 40
+  });
+  renderAdminEditorCourses();
+}
+
+function removeAdminEditorCourse(idx) {
+  if (!currentEditingStudent || !currentEditingStudent.attendance || !currentEditingStudent.attendance.courses) return;
+  currentEditingStudent.attendance.courses.splice(idx, 1);
+  renderAdminEditorCourses();
+}
+
+// 7. Format JSON & Save Changes
+function formatAdminJsonEditor() {
+  const jsonArea = document.getElementById("admin-edit-raw-json");
+  if (!jsonArea) return;
+  try {
+    const parsed = JSON.parse(jsonArea.value);
+    jsonArea.value = JSON.stringify(parsed, null, 2);
+    currentEditingStudent = parsed;
+    showToast("JSON formatted and validated successfully", "success", "JSON Valid");
+  } catch (e) {
+    showToast("Invalid JSON syntax: " + e.message, "error", "JSON Parse Error");
+  }
+}
+
+async function saveAdminStudentChanges() {
+  if (!currentEditingStudent || !currentEditingStudentRoll) return;
+
+  const btn = document.getElementById("btn-admin-save-student");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Saving to Database...</span>`;
+    lucide.createIcons();
+  }
+
+  // If active tab is raw JSON, parse it
+  const activeTab = document.querySelector(".admin-editor-tab-btn.active");
+  const isJsonTab = activeTab && activeTab.id === "admin-tab-btn-json";
+
+  if (isJsonTab) {
+    try {
+      const jsonText = document.getElementById("admin-edit-raw-json").value;
+      currentEditingStudent = JSON.parse(jsonText);
+    } catch (err) {
+      showToast("Invalid JSON syntax: " + err.message, "error", "JSON Parse Error");
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save & Apply Changes</span>`;
+        lucide.createIcons();
+      }
+      return;
+    }
+  } else {
+    syncAdminEditorFieldsToMemory();
+  }
+
+  currentEditingStudent.roll_number = currentEditingStudentRoll;
+
+  try {
+    const res = await fetch("/api/admin/student/update", {
+      method: "POST",
+      headers: getAdminAuthHeaders(),
+      body: JSON.stringify(currentEditingStudent)
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === "success") {
+      showToast(`Student ${currentEditingStudentRoll} record updated in database!`, "success", "Database Synchronized");
+      
+      // Update local user state if this student is currently active
+      if (state.currentStudent && state.currentStudent.student && state.currentStudent.student.roll_number === currentEditingStudentRoll) {
+        state.currentStudent = data.student;
+        if (state.activeTab === "results") {
+          renderOfficialMarksheet(data.student, "all");
+        }
+      }
+      if (state.currentUser && state.currentUser.roll_number === currentEditingStudentRoll) {
+        if (currentEditingStudent.name) state.currentUser.name = currentEditingStudent.name;
+        if (currentEditingStudent.is_verified !== undefined) state.currentUser.is_verified = currentEditingStudent.is_verified;
+      }
+
+      closeAdminStudentEditorModal();
+      loadAdminRoster(true);
+    } else {
+      showToast(data.message || "Failed to save student changes.", "error", "Database Error");
+    }
+  } catch (err) {
+    console.error("Save student error:", err);
+    showToast("Network error while saving changes.", "error", "Save Failure");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save & Apply Changes</span>`;
+      lucide.createIcons();
+    }
+  }
+}
+
+async function deleteAdminStudentRecord() {
+  if (!currentEditingStudentRoll) return;
+
+  const confirmed = confirm(`Are you sure you want to permanently delete student ${currentEditingStudentRoll}? This action cannot be undone.`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch("/api/admin/student/delete", {
+      method: "POST",
+      headers: getAdminAuthHeaders(),
+      body: JSON.stringify({ roll_number: currentEditingStudentRoll })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === "success") {
+      showToast(`Student ${currentEditingStudentRoll} deleted from database.`, "info", "Record Removed");
+      closeAdminStudentEditorModal();
+      loadAdminRoster(true);
+    } else {
+      showToast(data.message || "Failed to delete student record.", "error", "Delete Error");
+    }
+  } catch (err) {
+    console.error("Delete student error:", err);
+    showToast("Network error while deleting student.", "error", "Delete Failure");
+  }
+}
+
+// 8. Create Student Modal Controller
+function openCreateStudentModal() {
+  const modal = document.getElementById("admin-create-student-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeCreateStudentModal() {
+  const modal = document.getElementById("admin-create-student-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function submitCreateStudent(event) {
+  if (event) event.preventDefault();
+  const roll = document.getElementById("admin-create-roll").value.trim();
+  const name = document.getElementById("admin-create-name").value.trim();
+  const father = document.getElementById("admin-create-father").value.trim();
+  const email = document.getElementById("admin-create-email").value.trim();
+  const branch = document.getElementById("admin-create-branch").value.trim();
+  const semester = parseInt(document.getElementById("admin-create-semester").value, 10) || 3;
+  const cgpa = parseFloat(document.getElementById("admin-create-cgpa").value) || 8.5;
+  const attendance = parseFloat(document.getElementById("admin-create-attendance").value) || 85.0;
+
+  if (!roll || !name) {
+    showToast("Enrollment number and name are required.", "error", "Validation Error");
+    return;
+  }
+
+  const btn = document.getElementById("btn-admin-create-submit");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Creating...</span>`;
+    lucide.createIcons();
+  }
+
+  const payload = {
+    roll_number: roll,
+    name: name,
+    father_name: father || "N/A",
+    email: email,
+    branch: branch,
+    semester: semester,
+    overall: {
+      cgpa: cgpa,
+      percentage: cgpa * 9.5,
+      total_credits: 50
+    },
+    attendance: {
+      overall: {
+        percentage: attendance,
+        present: Math.round(attendance),
+        total: 100,
+        bunk_buffer: 5
+      },
+      courses: [
+        { name: `${branch} Core Engineering`, percentage: attendance, present: Math.round(attendance * 0.4), total: 40 }
+      ]
+    }
+  };
+
+  try {
+    const res = await fetch("/api/admin/student/create", {
+      method: "POST",
+      headers: getAdminAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === "success") {
+      showToast(`Student ${name} (${roll}) created successfully!`, "success", "Student Registered");
+      closeCreateStudentModal();
+      loadAdminRoster(true);
+    } else {
+      showToast(data.message || "Failed to create student.", "error", "Registration Error");
+    }
+  } catch (err) {
+    console.error("Create student error:", err);
+    showToast("Network error creating student record.", "error", "Creation Failure");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Create Student</span>`;
+      lucide.createIcons();
+    }
+  }
+}
+
 
 
 

@@ -52,8 +52,8 @@
   <header class="sticky top-0 z-40 w-full glass-nav px-4 lg:px-8 py-3 transition-all duration-200">
     <div class="max-w-7xl mx-auto flex items-center justify-between">
       
-      <!-- Brand & Status -->
-      <div class="flex items-center gap-3">
+      <!-- Brand & Status (Stealth Admin Access Trigger on Triple-Click) -->
+      <div class="flex items-center gap-3 cursor-pointer select-none" id="app-brand-container" onclick="handleSecretAdminTrigger()">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-[0_0_16px_rgba(59,130,246,0.4)]">
           <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
         </div>
@@ -87,10 +87,6 @@
         <button onclick="switchTab('community')" id="nav-community" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="users-round" class="w-3.5 h-3.5 text-indigo-400"></i>
           <span>Community</span>
-        </button>
-        <button onclick="switchTab('admin')" id="nav-admin" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
-          <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400"></i>
-          <span>Faculty Roster</span>
         </button>
         <button onclick="switchTab('atlas')" id="nav-atlas" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5">
           <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
@@ -145,10 +141,6 @@
     <button onclick="switchTab('community')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-community">
       <i data-lucide="users-round" class="w-4 h-4"></i>
       <span class="text-[10px] font-medium tracking-tight">Community</span>
-    </button>
-    <button onclick="switchTab('admin')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-admin">
-      <i data-lucide="users" class="w-4 h-4"></i>
-      <span class="text-[10px] font-medium tracking-tight">Faculty</span>
     </button>
     <button onclick="switchTab('atlas')" class="mobile-tab-btn flex flex-col items-center gap-1 py-1 text-zinc-400 active:scale-95 transition-all" id="m-nav-atlas">
       <i data-lucide="cpu" class="w-4 h-4"></i>
@@ -1045,63 +1037,71 @@
 
 
     <!-- ========================================================================= -->
-    <!-- TAB 6: FACULTY ADMIN ROSTER & CONFIDENTIAL STUDENT DOSSIERS -->
+    <!-- TAB 6: STEALTH MASTER ADMIN COMMAND CENTER -->
     <!-- ========================================================================= -->
     <section id="tab-admin" class="tab-pane hidden space-y-6">
       
-      <!-- Top Title Card & Summary -->
-      <div class="p-6 sm:p-8 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
+      <!-- Top Title Card & Summary (Stealth Admin Design) -->
+      <div class="p-6 sm:p-8 rounded-3xl glass-card border border-red-500/20 relative overflow-hidden bg-radial-at-t from-red-500/5 via-transparent to-transparent shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div class="space-y-2 max-w-2xl">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-              <span>Faculty & Admin Academic Registry</span>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-semibold font-mono">
+              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              <span>RESTRICTED ACCESS • ADMIN CLEARANCE ACTIVE</span>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Student Academic Dossiers & Profiles
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <span>CampusIQ Master Command Center</span>
             </h1>
             <p class="text-xs sm:text-sm text-zinc-400">
-              Verified records extracted directly from official GGSIPU ExamWeb & verified syllabus schemes. Displays official student photos, internal/external marks, semester-wise credit compliance, and private remediation alerts.
+              Live administrative interface to audit and modify any student's complete academic record, ExamWeb marksheets, Edumarshal attendance overrides, and ground truth accounts.
             </p>
           </div>
 
-          <div class="flex items-center gap-3">
-            <button onclick="loadAdminRoster()" class="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-2 shadow-sm">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Refresh Registry</span>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="openCreateStudentModal()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+              <span>Create Student</span>
+            </button>
+            <button onclick="loadAdminRoster(true)" class="px-3.5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span>Refresh</span>
+            </button>
+            <button onclick="lockAdminPanel()" class="px-3.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-xs font-semibold text-red-400 transition-all flex items-center gap-2 shadow-sm">
+              <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+              <span>Lock Console</span>
             </button>
           </div>
         </div>
 
         <!-- Metric KPI Cards -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-white/5">
-          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
-            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Profiles Stored</span>
+          <div class="p-3.5 rounded-2xl bg-zinc-950/60 border border-white/5">
+            <span class="block text-[11px] font-mono text-zinc-500 uppercase">Total Students</span>
             <span id="admin-kpi-total" class="text-xl font-bold font-mono text-white">0</span>
           </div>
-          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+          <div class="p-3.5 rounded-2xl bg-zinc-950/60 border border-white/5">
             <span class="block text-[11px] font-mono text-zinc-500 uppercase">Average CGPA</span>
             <span id="admin-kpi-avg-cgpa" class="text-xl font-bold font-mono text-blue-400">0.00</span>
           </div>
-          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+          <div class="p-3.5 rounded-2xl bg-zinc-950/60 border border-white/5">
             <span class="block text-[11px] font-mono text-zinc-500 uppercase">Good Standing</span>
             <span id="admin-kpi-clean" class="text-xl font-bold font-mono text-emerald-400">0</span>
           </div>
-          <div class="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+          <div class="p-3.5 rounded-2xl bg-zinc-950/60 border border-white/5">
             <span class="block text-[11px] font-mono text-zinc-500 uppercase">Backlog Alerts</span>
             <span id="admin-kpi-backlogs" class="text-xl font-bold font-mono text-amber-400">0</span>
           </div>
         </div>
       </div>
 
-      <!-- Search & Filters -->
+      <!-- Omni Search & Filters -->
       <div class="p-4 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="relative flex-1 w-full">
           <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"></i>
-          <input type="text" id="admin-search-input" oninput="filterAdminRoster()" placeholder="Search by Student Name or 11-Digit Roll Number..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+          <input type="text" id="admin-search-input" oninput="filterAdminRoster()" placeholder="Omni Search by Enrollment Number, Student Name, or Email..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-all">
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <select id="admin-filter-status" onchange="filterAdminRoster()" class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500">
+          <select id="admin-filter-status" onchange="filterAdminRoster()" class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-zinc-300 focus:outline-none focus:border-red-500 font-mono">
             <option value="all">All Academic Standings</option>
             <option value="clean">Good Standing (0 Backlogs)</option>
             <option value="backlog">Has Active Backlogs</option>
@@ -1118,7 +1118,7 @@
       <div id="admin-empty-state" class="hidden p-12 text-center rounded-2xl glass-card border border-white/5 space-y-2">
         <i data-lucide="user-x" class="w-8 h-8 text-zinc-500 mx-auto"></i>
         <h3 class="text-sm font-bold text-white">No Student Records Found</h3>
-        <p class="text-xs text-zinc-500">Try adjusting your search query or sync new students via ExamWeb.</p>
+        <p class="text-xs text-zinc-500">Try adjusting your search query or create a new student record.</p>
       </div>
 
     </section>
@@ -1665,6 +1665,368 @@
           Close Inspector
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- STEALTH ADMIN CLEARANCE AUTHENTICATION MODAL -->
+  <!-- ========================================================================= -->
+  <div id="admin-auth-modal" class="fixed inset-0 bg-[#09090b]/90 backdrop-blur-2xl z-[10000] flex items-center justify-center p-4 transition-all duration-300 hidden">
+    <div class="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-zinc-950 border border-red-500/30 shadow-[0_25px_80px_rgba(0,0,0,0.9)] terminal-glow space-y-6">
+      <div class="flex items-center justify-between pb-4 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white tracking-tight">Security Clearance Required</h3>
+            <span class="text-[11px] font-mono text-zinc-400">CampusIQ Master Console</span>
+          </div>
+        </div>
+        <button onclick="closeAdminAuthModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white transition-all">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-xs text-zinc-400 leading-relaxed">
+          Administrative terminal access is encrypted. Enter your master administrator security passcode to unlock the student editor and records override authority.
+        </p>
+      </div>
+
+      <form onsubmit="submitAdminPasscode(event)" class="space-y-4">
+        <div class="space-y-1.5">
+          <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Master Passcode</label>
+          <div class="relative">
+            <input type="password" id="admin-passcode-input" autocomplete="current-password" placeholder="••••••••••••" required class="w-full pl-4 pr-10 py-2.5 rounded-xl bg-zinc-900 border border-white/10 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-all">
+            <button type="button" onclick="togglePasscodeVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+              <i id="admin-passcode-eye" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <p id="admin-auth-error" class="text-[11px] text-red-400 font-mono hidden flex items-center gap-1 mt-1">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+            <span>Invalid passcode. Security clearance rejected.</span>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+          <button type="button" onclick="closeAdminAuthModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition-all">
+            Cancel
+          </button>
+          <button type="submit" id="btn-admin-auth-submit" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+            <span>Unlock Console</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- DEEP MULTI-TAB STUDENT DOSSIER & RECORDS LIVE EDITOR MODAL -->
+  <!-- ========================================================================= -->
+  <div id="admin-student-editor-modal" class="fixed inset-0 bg-[#09090b]/90 backdrop-blur-2xl z-[10000] flex items-center justify-center p-3 sm:p-4 transition-all duration-300 hidden">
+    <div class="max-w-4xl w-full max-h-[92vh] flex flex-col rounded-3xl bg-zinc-950 border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden">
+      
+      <!-- Editor Header -->
+      <div class="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-zinc-950/80 backdrop-blur-md">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-red-600 to-amber-600 p-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center">
+            <div class="w-full h-full bg-[#09090b] rounded-[14px] flex items-center justify-center">
+              <i data-lucide="shield-check" class="w-5 h-5 text-red-400"></i>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="admin-editor-title" class="text-base sm:text-lg font-bold text-white tracking-tight">Student Academic Editor</h2>
+              <span id="admin-editor-roll-badge" class="px-2 py-0.5 rounded font-mono text-[11px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">00000000000</span>
+            </div>
+            <p class="text-xs text-zinc-400">Directly modify profile, official ExamWeb results, and Edumarshal attendance overrides.</p>
+          </div>
+        </div>
+
+        <button onclick="closeAdminStudentEditorModal()" class="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Editor Tab Navigation -->
+      <div class="px-5 sm:px-6 pt-3 pb-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0 bg-zinc-900/30">
+        <button id="admin-tab-btn-profile" onclick="switchAdminEditorTab('profile')" class="admin-editor-tab-btn active">
+          <i data-lucide="user" class="w-3.5 h-3.5"></i>
+          <span>Profile & Identity</span>
+        </button>
+        <button id="admin-tab-btn-results" onclick="switchAdminEditorTab('results')" class="admin-editor-tab-btn">
+          <i data-lucide="award" class="w-3.5 h-3.5"></i>
+          <span>Results & Marksheet</span>
+        </button>
+        <button id="admin-tab-btn-attendance" onclick="switchAdminEditorTab('attendance')" class="admin-editor-tab-btn">
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          <span>Attendance Radar</span>
+        </button>
+        <button id="admin-tab-btn-json" onclick="switchAdminEditorTab('json')" class="admin-editor-tab-btn">
+          <i data-lucide="code" class="w-3.5 h-3.5"></i>
+          <span>Raw JSON</span>
+        </button>
+      </div>
+
+      <!-- Editor Scrollable Body -->
+      <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        
+        <!-- PANE 1: PROFILE & IDENTITY -->
+        <div id="admin-pane-profile" class="admin-editor-pane active space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-400 uppercase">Enrollment Number (Roll)</label>
+              <input type="text" id="admin-edit-roll" readonly class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900/50 border border-white/10 text-xs font-mono text-zinc-400 cursor-not-allowed">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Full Name</label>
+              <input type="text" id="admin-edit-name" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Father's Name</label>
+              <input type="text" id="admin-edit-father" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Student Email</label>
+              <input type="email" id="admin-edit-email" placeholder="student@mait.ac.in" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Branch / Discipline</label>
+              <input type="text" id="admin-edit-branch" placeholder="Computer Science and Engineering" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Programme / Degree</label>
+              <input type="text" id="admin-edit-programme" placeholder="BACHELOR OF TECHNOLOGY (CSE)" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Current Semester</label>
+              <input type="number" id="admin-edit-semester" min="1" max="10" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs font-mono text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Batch Year</label>
+              <input type="text" id="admin-edit-batch" placeholder="2023-2027" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs font-mono text-white focus:outline-none focus:border-red-500 transition-all">
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Institution Name</label>
+            <input type="text" id="admin-edit-institution" placeholder="MAHARAJA AGRASEN INSTITUTE OF TECHNOLOGY" class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-red-500 transition-all">
+          </div>
+
+          <div class="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-white">Verified Student Status</h4>
+              <p class="text-[11px] text-zinc-400">Enables official verification badge across CampusIQ and unlocks verified peer networking privileges.</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="admin-edit-is-verified" class="sr-only peer">
+              <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- PANE 2: RESULTS & MARKSHEET OVERRIDES -->
+        <div id="admin-pane-results" class="admin-editor-pane space-y-6">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Cumulative CGPA</label>
+              <input type="number" step="0.01" min="0" max="10" id="admin-edit-cgpa" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-blue-400 focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Aggregate %</label>
+              <input type="number" step="0.1" min="0" max="100" id="admin-edit-percentage" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-emerald-400 focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Active Backlogs</label>
+              <input type="number" min="0" max="50" id="admin-edit-backlogs" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-amber-400 focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Credits Earned</label>
+              <input type="number" min="0" max="300" id="admin-edit-credits" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-white focus:outline-none focus:border-red-500">
+            </div>
+          </div>
+
+          <!-- Semesters Header & Breakdown List -->
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300 font-mono">Semester-by-Semester ExamWeb Results</h4>
+                <p class="text-[11px] text-zinc-500">Audit or edit semester SGPAs, paper marks, credits, and letter grades.</p>
+              </div>
+              <button type="button" onclick="addAdminEditorSemester()" class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs text-white font-medium flex items-center gap-1.5 transition-all">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>Add Semester</span>
+              </button>
+            </div>
+
+            <div id="admin-editor-semesters-list" class="space-y-4">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE 3: ATTENDANCE RADAR OVERRIDES -->
+        <div id="admin-pane-attendance" class="admin-editor-pane space-y-6">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Overall Attendance %</label>
+              <input type="number" step="0.1" min="0" max="100" id="admin-edit-att-pct" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-emerald-400 focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Present Lectures</label>
+              <input type="number" min="0" id="admin-edit-att-present" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-white focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Total Lectures</label>
+              <input type="number" min="0" id="admin-edit-att-total" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-zinc-300 focus:outline-none focus:border-red-500">
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-1">
+              <label class="block text-[10px] font-mono uppercase text-zinc-400">Bunk Margin Buffer</label>
+              <input type="number" id="admin-edit-att-margin" class="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-white/15 text-sm font-bold font-mono text-cyan-400 focus:outline-none focus:border-red-500">
+            </div>
+          </div>
+
+          <!-- Course-wise Attendance Overrides -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300 font-mono">Course-wise Attendance Breakdown</h4>
+                <p class="text-[11px] text-zinc-500">Subject periods, present counts, and percentage overrides.</p>
+              </div>
+              <button type="button" onclick="addAdminEditorCourse()" class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs text-white font-medium flex items-center gap-1.5 transition-all">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Add Course</span>
+              </button>
+            </div>
+
+            <div id="admin-editor-courses-list" class="space-y-2.5">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE 4: RAW JSON INSPECTOR -->
+        <div id="admin-pane-json" class="admin-editor-pane space-y-3">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] text-zinc-400">Directly inspect or edit the underlying JSON payload stored in PostgreSQL / SQLite.</p>
+            <button type="button" onclick="formatAdminJsonEditor()" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all">
+              Format JSON
+            </button>
+          </div>
+          <textarea id="admin-edit-raw-json" rows="18" class="w-full p-4 rounded-2xl bg-zinc-950 border border-white/15 admin-code-editor text-xs text-emerald-400 focus:outline-none focus:border-red-500 leading-relaxed"></textarea>
+        </div>
+
+      </div>
+
+      <!-- Editor Footer Actions -->
+      <div class="p-4 sm:p-5 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-zinc-950/90 backdrop-blur-md">
+        <button type="button" onclick="deleteAdminStudentRecord()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Delete Student Record</span>
+        </button>
+
+        <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button type="button" onclick="closeAdminStudentEditorModal()" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition-all">
+            Cancel
+          </button>
+          <button type="button" onclick="saveAdminStudentChanges()" id="btn-admin-save-student" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>Save & Apply Changes</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- CREATE NEW STUDENT RECORD MODAL -->
+  <!-- ========================================================================= -->
+  <div id="admin-create-student-modal" class="fixed inset-0 bg-[#09090b]/90 backdrop-blur-2xl z-[10000] flex items-center justify-center p-4 transition-all duration-300 hidden">
+    <div class="max-w-lg w-full p-6 sm:p-8 rounded-3xl bg-zinc-950 border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,0.95)] space-y-6">
+      <div class="flex items-center justify-between pb-4 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white tracking-tight">Create Student Record</h3>
+            <span class="text-[11px] font-mono text-zinc-400">Initialize ground truth student dossier</span>
+          </div>
+        </div>
+        <button onclick="closeCreateStudentModal()" class="p-1 rounded-lg text-zinc-400 hover:text-white transition-all">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitCreateStudent(event)" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Enrollment Number *</label>
+            <input type="text" id="admin-create-roll" placeholder="08414802725" required class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Full Name *</label>
+            <input type="text" id="admin-create-name" placeholder="John Doe" required class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Father's Name</label>
+            <input type="text" id="admin-create-father" placeholder="Father Name" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Student Email</label>
+            <input type="email" id="admin-create-email" placeholder="student@mait.ac.in" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Branch</label>
+            <input type="text" id="admin-create-branch" value="CSE" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Semester</label>
+            <input type="number" id="admin-create-semester" value="3" min="1" max="8" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Initial CGPA</label>
+            <input type="number" step="0.01" id="admin-create-cgpa" value="8.50" min="0" max="10" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-mono font-medium text-zinc-300 uppercase">Initial Attendance %</label>
+            <input type="number" step="0.1" id="admin-create-attendance" value="85.0" min="0" max="100" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-all">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 pt-3 border-t border-white/5">
+          <button type="button" onclick="closeCreateStudentModal()" class="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition-all">
+            Cancel
+          </button>
+          <button type="submit" id="btn-admin-create-submit" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(16,185,129,0.35)] flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Create Student</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -488,12 +488,12 @@ def delete_credential(email: str) -> None:
 # STUDENTS DATABASE OPERATIONS
 # ==============================================================================
 
-def save_student_record(roll_number: str, student_data: Dict[str, Any]) -> None:
+def save_student_record(roll_number: str, student_data: Dict[str, Any], email: Optional[str] = None, name: Optional[str] = None) -> None:
     if not roll_number or not student_data:
         return
     roll_clean = roll_number.strip()
-    name = student_data.get("name") or student_data.get("student_name") or ""
-    email = student_data.get("email") or ""
+    name = name or student_data.get("name") or student_data.get("student_name") or ""
+    email = email or student_data.get("email") or ""
     raw_json = json.dumps(student_data)
     now = time.time()
 
@@ -551,6 +551,18 @@ def get_all_student_records() -> Dict[str, Dict[str, Any]]:
             except Exception:
                 pass
     return out
+
+
+def delete_student_record(roll_number: str) -> bool:
+    if not roll_number:
+        return False
+    roll_clean = roll_number.strip()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM students_records WHERE roll_number = ?", (roll_clean,)) if not USE_POSTGRES else \
+            cursor.execute("DELETE FROM students_records WHERE roll_number = %s", (roll_clean,))
+        conn.commit()
+    return True
 
 
 # ==============================================================================
