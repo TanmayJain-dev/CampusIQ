@@ -63,7 +63,9 @@ def extract_meta_from_drive_path(rel_path: str, drive_id: str) -> Dict[str, Any]
         subject_code = SUBJECT_CODE_MAP.get(subject, "GEN-000")
 
     p_lower = rel_path.lower()
-    if "mid sem" in p_lower or "midterm" in p_lower:
+    if "akash" in p_lower or "aakash" in p_lower:
+        category = "Akash Solved Question Banks"
+    elif "mid sem" in p_lower or "midterm" in p_lower:
         category = "Mid-Term Papers & PYQs"
     elif "end sem" in p_lower or "endterm" in p_lower:
         category = "End-Term Papers & PYQs"

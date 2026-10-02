@@ -40,11 +40,14 @@ client_secret*.json
 
 # Dedicated Google Drive local staging folder
 CampusIQ_Drive_Vault/
+assets/vault/
+*.pdf
 
 # Local databases and encryption keys
 data/.vault_key
 *.db
 *.db-wal
 *.db-shm
+
 
 

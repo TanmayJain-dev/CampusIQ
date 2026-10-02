@@ -93,7 +93,7 @@ def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
                 pass
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "*/*"
         }
         urls = [
@@ -103,7 +103,7 @@ def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
         for url in urls:
             try:
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=15) as resp:
+                with urllib.request.urlopen(req, timeout=40) as resp:
                     data = resp.read()
                     if b"confirm=" in data and b"download" in data:
                         m = re.search(r'confirm=([0-9a-zA-Z_-]+)', data.decode('utf-8', errors='ignore'))
@@ -111,7 +111,7 @@ def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
                             confirm_token = m.group(1)
                             confirm_url = f"{url}&confirm={confirm_token}"
                             creq = urllib.request.Request(confirm_url, headers=headers)
-                            with urllib.request.urlopen(creq, timeout=20) as cresp:
+                            with urllib.request.urlopen(creq, timeout=60) as cresp:
                                 data = cresp.read()
                     if data and len(data) > 200 and not data.startswith(b"<!DOCTYPE html"):
                         try:
@@ -799,37 +799,30 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         filename = os.path.basename(rel_path) if rel_path else f"document_{file_id}.pdf"
         content = None
 
-        # 1. Try bundled repository assets first (guaranteed 100% availability in cloud/Render & local)
-        if rel_path and os.path.exists(BUNDLED_VAULT_DIR):
-            bundled_path = os.path.abspath(os.path.join(BUNDLED_VAULT_DIR, rel_path))
-            if bundled_path.startswith(os.path.abspath(BUNDLED_VAULT_DIR)) and os.path.exists(bundled_path):
-                try:
-                    with open(bundled_path, "rb") as f:
-                        content = f.read()
-                    filename = os.path.basename(bundled_path)
-                except Exception as e:
-                    print(f"[!] Error reading bundled file {bundled_path}: {e}", file=sys.stderr)
+        # 1. Prioritize Google Drive headless stream (mapped via data/vault_drive_map.json or direct ?id=)
+        drive_map = load_vault_drive_map()
+        target_id = file_id or drive_map.get("files", {}).get(rel_path)
+        
+        # Normalized match in drive map
+        if not target_id and rel_path:
+            norm_rel = rel_path.replace("\\", "/").strip("/").lower()
+            for k, v in drive_map.get("files", {}).items():
+                if k.replace("\\", "/").strip("/").lower() == norm_rel:
+                    target_id = v
+                    break
 
-            # Check normalized or basename match in bundled vault
-            if content is None:
-                target_base = os.path.basename(rel_path).lower()
-                norm_target = rel_path.replace("\\", "/").strip("/").lower()
-                for root, _, files in os.walk(BUNDLED_VAULT_DIR):
-                    for fname in files:
-                        cur_full = os.path.join(root, fname)
-                        cur_rel = os.path.relpath(cur_full, BUNDLED_VAULT_DIR).replace("\\", "/").strip("/").lower()
-                        if cur_rel == norm_target or fname.lower() == target_base:
-                            try:
-                                with open(cur_full, "rb") as f:
-                                    content = f.read()
-                                filename = fname
-                                break
-                            except Exception:
-                                pass
-                    if content is not None:
-                        break
+        # Filename match in drive map
+        if not target_id and rel_path:
+            req_base = os.path.basename(rel_path).lower()
+            for k, v in drive_map.get("files", {}).items():
+                if os.path.basename(k).lower() == req_base:
+                    target_id = v
+                    break
 
-        # 2. Try external academic directory (when running in local development or if mounted)
+        if target_id:
+            content = fetch_google_drive_file(target_id)
+
+        # 2. Fallback to local files only if not in Drive and exists on disk
         if content is None and rel_path and ACADEMIC_DIR and os.path.exists(ACADEMIC_DIR):
             abs_path = os.path.abspath(os.path.join(ACADEMIC_DIR, rel_path))
             if abs_path.startswith(os.path.abspath(ACADEMIC_DIR)) and os.path.exists(abs_path):
@@ -840,32 +833,20 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"[!] Error reading local file {abs_path}: {e}", file=sys.stderr)
 
-        # 2. Try Google Drive headless stream (mapped via data/vault_drive_map.json)
-        if content is None:
-            drive_map = load_vault_drive_map()
-            target_id = file_id or drive_map.get("files", {}).get(rel_path)
-            
-            # If not exact match, try normalized match
-            if not target_id and rel_path:
-                norm_rel = rel_path.replace("\\", "/").strip("/")
-                for k, v in drive_map.get("files", {}).items():
-                    if k.replace("\\", "/").strip("/") == norm_rel:
-                        target_id = v
-                        break
+        # 3. Fallback to bundled repository assets if present
+        if content is None and rel_path and os.path.exists(BUNDLED_VAULT_DIR):
+            bundled_path = os.path.abspath(os.path.join(BUNDLED_VAULT_DIR, rel_path))
+            if bundled_path.startswith(os.path.abspath(BUNDLED_VAULT_DIR)) and os.path.exists(bundled_path):
+                try:
+                    with open(bundled_path, "rb") as f:
+                        content = f.read()
+                    filename = os.path.basename(bundled_path)
+                except Exception as e:
+                    pass
 
-            # If still not matched, try matching by filename
-            if not target_id and rel_path:
-                req_base = os.path.basename(rel_path).lower()
-                for k, v in drive_map.get("files", {}).items():
-                    if os.path.basename(k).lower() == req_base:
-                        target_id = v
-                        break
-
-            if target_id:
-                content = fetch_google_drive_file(target_id)
-
-        # 3. Stream content if found
+        # 4. Stream content if found (supporting Range header for instant PDF paging)
         if content:
+            total_size = len(content)
             lower_name = filename.lower()
             if lower_name.endswith(".jpg") or lower_name.endswith(".jpeg"):
                 mime_type = "image/jpeg"
@@ -876,9 +857,37 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             else:
                 mime_type = "application/pdf"
 
+            range_header = self.headers.get("Range")
+            if range_header and range_header.startswith("bytes="):
+                try:
+                    ranges = range_header.replace("bytes=", "").split("-")
+                    start = int(ranges[0]) if ranges[0] else 0
+                    end = int(ranges[1]) if ranges[1] else total_size - 1
+                    end = min(end, total_size - 1)
+                    chunk_len = end - start + 1
+                    
+                    self.send_response(206)
+                    self.send_header("Content-Type", mime_type)
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{total_size}")
+                    self.send_header("Content-Length", str(chunk_len))
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+                    for k, v in self.send_cors_headers().items():
+                        self.send_header(k, v)
+                    self.end_headers()
+                    if self.command != "HEAD":
+                        try:
+                            self.wfile.write(content[start:end+1])
+                        except (BrokenPipeError, ConnectionResetError):
+                            pass
+                    return
+                except Exception:
+                    pass
+
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Content-Length", str(total_size))
+            self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Disposition", f'inline; filename="{filename}"')
             for k, v in self.send_cors_headers().items():
                 self.send_header(k, v)
