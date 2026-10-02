@@ -893,8 +893,8 @@ function renderResourceCardHtml(r) {
 
       <div class="flex items-center gap-2 pt-1 border-t border-white/5 text-xs">
         <button onclick="openPdfPreview(${clickArgs})" class="flex-1 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95">
-          <i data-lucide="${hasTs ? 'sparkles' : 'eye'}" class="w-3.5 h-3.5 ${hasTs ? 'text-emerald-400' : ''}"></i>
-          <span>${isDual ? 'Master + Raw' : (hasTs ? 'Preview Master' : 'Preview')}</span>
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>Preview</span>
         </button>
         <a href="${viewUrl}" download="${r.filename || 'document.pdf'}" class="px-3.5 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95" title="Direct Download">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -1157,7 +1157,7 @@ function switchPdfViewVersion(version) {
       icon.setAttribute("data-lucide", "sparkles");
       icon.className = "w-4 h-4 text-emerald-400 shrink-0";
     }
-    if (downloadText) downloadText.innerText = "Master";
+    if (downloadText) downloadText.innerText = "Download";
   } else {
     activePath = doc.rawPath || "";
     activeDriveId = doc.rawDriveId || "";
@@ -1171,7 +1171,7 @@ function switchPdfViewVersion(version) {
       icon.setAttribute("data-lucide", "file-text");
       icon.className = "w-4 h-4 text-amber-400 shrink-0";
     }
-    if (downloadText) downloadText.innerText = "Raw Scan";
+    if (downloadText) downloadText.innerText = "Download";
   }
 
   const encodedPath = encodeURIComponent(activePath || "");
