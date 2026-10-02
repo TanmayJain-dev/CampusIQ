@@ -551,6 +551,15 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=os.path.join(PROJECT_DIR, "public"), **kwargs)
 
+    def end_headers(self):
+        # Prevent browser aggressive caching of UI scripts and HTML during development
+        p = urllib.parse.urlparse(self.path).path
+        if p.endswith(".html") or p.endswith(".js") or p.endswith(".json") or p == "/" or p.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+        super().end_headers()
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -765,7 +774,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         category = params.get("category", [""])[0].lower()
         typeset_only = params.get("typeset", ["false"])[0].lower() in ["true", "1"]
         search = params.get("search", [""])[0].lower()
-        limit = int(params.get("limit", [500])[0])
+        limit = int(params.get("limit", [2000])[0])
 
         filtered = catalog
         if semester.isdigit():

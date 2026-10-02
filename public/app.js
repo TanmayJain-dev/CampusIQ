@@ -30,7 +30,7 @@ const state = {
   resources: [],
   vaultTree: null,
   vaultSemester: 3,
-  vaultSubject: null,
+  vaultSubject: "all",
   vaultCategoryFilter: "all",
   vaultSubjectFilter: "",
   typesetOnly: false,
@@ -527,6 +527,21 @@ async function fetchResourcesTree() {
     const data = json.tree || json;
     state.vaultTree = data;
 
+    // Populate flat resources array if empty for instant universal search
+    if (!state.resources || state.resources.length === 0) {
+      const flattened = [];
+      Object.values(data.semesters || {}).forEach(semObj => {
+        Object.values(semObj.subjects || {}).forEach(subj => {
+          Object.values(subj.categories || {}).forEach(arr => {
+            flattened.push(...arr);
+          });
+        });
+      });
+      if (flattened.length > 0) {
+        state.resources = flattened;
+      }
+    }
+
     // Update global vault header counters
     if (data.total_items || data.total) {
       const totEl = document.getElementById("stat-total-resources");
@@ -545,7 +560,7 @@ async function fetchResourcesTree() {
 
 async function fetchResources() {
   try {
-    const res = await fetch("/api/resources?semester=all");
+    const res = await fetch("/api/resources?semester=all&limit=2000");
     const data = await res.json();
     state.resources = data.resources || [];
 
@@ -567,8 +582,13 @@ async function fetchResources() {
 
 function setVaultSemester(sem) {
   state.vaultSemester = sem;
-  state.vaultSubject = null;
+  state.vaultSubject = 'all';
   state.vaultCategoryFilter = 'all';
+  state.typesetOnly = false;
+  const btn = document.getElementById("btn-quick-typeset");
+  if (btn) {
+    btn.className = "px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 font-medium transition-all flex items-center gap-1.5";
+  }
   renderVaultHierarchy();
 }
 
@@ -580,6 +600,13 @@ function setVaultSubject(subjKey) {
 
 function setVaultCategoryFilter(cat) {
   state.vaultCategoryFilter = cat;
+  if (cat === 'all') {
+    state.typesetOnly = false;
+    const btn = document.getElementById("btn-quick-typeset");
+    if (btn) {
+      btn.className = "px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 font-medium transition-all flex items-center gap-1.5";
+    }
+  }
   
   const pillIds = {
     all: "v-cat-all",
@@ -686,6 +713,8 @@ function renderVaultHierarchy() {
   const semStatBadge = document.getElementById("active-sem-stat-badge");
   if (semStatBadge) semStatBadge.innerText = `Semester ${currentSem} • ${semTotal} Resources`;
 
+  const allCountEl = document.getElementById("sem-all-count");
+  if (allCountEl) allCountEl.innerText = semTotal;
   const akashCountEl = document.getElementById("sem-akash-count");
   if (akashCountEl) akashCountEl.innerText = semAkash;
   const notesCountEl = document.getElementById("sem-notes-count");
@@ -715,9 +744,9 @@ function renderVaultSubjectRail() {
     });
   }
 
-  // Maintain active subject selection
-  if (!state.vaultSubject || !subjectsObj[state.vaultSubject]) {
-    state.vaultSubject = subjectKeys[0] || null;
+  // Maintain active subject selection: default to 'all' if not set or invalid
+  if (state.vaultSubject !== 'all' && (!state.vaultSubject || !subjectsObj[state.vaultSubject])) {
+    state.vaultSubject = 'all';
   }
 
   const railCount = document.getElementById("rail-subjects-count");
@@ -728,16 +757,48 @@ function renderVaultSubjectRail() {
   const listContainer = document.getElementById("vault-subject-list");
   if (!listContainer) return;
 
-  if (subjectKeys.length === 0) {
+  if (subjectKeys.length === 0 && !query) {
     listContainer.innerHTML = `
       <div class="p-6 text-center text-xs text-zinc-500">
-        ${query ? 'No matching subjects.' : (currentSem === 8 ? 'Semester 8 is Capstone Major Internship & Project semester.' : 'No subjects indexed for this semester yet.')}
+        ${currentSem === 8 ? 'Semester 8 is Capstone Major Internship & Project semester.' : 'No subjects indexed for this semester yet.'}
       </div>
     `;
     return;
   }
 
-  listContainer.innerHTML = subjectKeys.map(k => {
+  const semTotalDocs = Object.values(subjectsObj).reduce((acc, subj) => {
+    return acc + Object.values(subj.categories || {}).reduce((cacc, arr) => cacc + arr.length, 0);
+  }, 0);
+
+  const isAllActive = state.vaultSubject === 'all' || !state.vaultSubject;
+  const allActiveClasses = isAllActive
+    ? "bg-gradient-to-r from-emerald-950/60 to-zinc-900 border-emerald-500/50 shadow-sm"
+    : "bg-zinc-900/60 hover:bg-zinc-900 border-white/5 hover:border-white/15";
+
+  let allSubjectsHtml = "";
+  if (!query && semTotalDocs > 0) {
+    allSubjectsHtml = `
+      <div onclick="setVaultSubject('all')" class="p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 group mb-1.5 ${allActiveClasses}">
+        <div class="overflow-hidden space-y-0.5">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-semibold ${isAllActive ? 'text-emerald-300 font-bold' : 'text-zinc-200 group-hover:text-white'} truncate">
+              ⭐ All Subjects
+            </span>
+          </div>
+          <div class="text-[10px] font-mono text-zinc-500 flex items-center gap-1.5">
+            <span>SEM-${currentSem}</span>
+            <span>•</span>
+            <span>Complete Curriculum</span>
+          </div>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-mono ${isAllActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold' : 'bg-zinc-800 text-zinc-400'} shrink-0">
+          ${semTotalDocs}
+        </span>
+      </div>
+    `;
+  }
+
+  const subjectCardsHtml = subjectKeys.map(k => {
     const subj = subjectsObj[k];
     const totalDocs = Object.values(subj.categories || {}).reduce((acc, arr) => acc + arr.length, 0);
     const hasAkash = Object.entries(subj.categories || {}).some(([cname, arr]) => 
@@ -767,6 +828,8 @@ function renderVaultSubjectRail() {
       </div>
     `;
   }).join("");
+
+  listContainer.innerHTML = allSubjectsHtml + subjectCardsHtml;
 }
 
 function renderResourceCardHtml(r) {
@@ -824,52 +887,79 @@ function renderVaultResourceDeck() {
   const currentSem = state.vaultSemester || 3;
   const semData = state.vaultTree?.semesters?.[currentSem];
   const subjectsObj = semData ? (semData.subjects || {}) : {};
-  const activeSubj = state.vaultSubject ? subjectsObj[state.vaultSubject] : null;
 
   const deckTitle = document.getElementById("deck-subject-title");
   const deckCode = document.getElementById("deck-subject-code");
+  const deckDesc = document.getElementById("deck-subject-desc");
   const deckSemBadge = document.getElementById("deck-semester-badge");
   const deckAkashBadge = document.getElementById("deck-akash-badge");
   const deckCountBadge = document.getElementById("deck-items-count-badge");
   const gridContainer = document.getElementById("vault-deck-cards-grid");
   const emptyContainer = document.getElementById("vault-deck-empty");
 
-  if (!activeSubj) {
-    if (deckTitle) deckTitle.innerText = currentSem === 8 ? "Capstone Major Project & Internship" : `Semester ${currentSem} Overview`;
-    if (deckCode) deckCode.innerText = `SEM-${currentSem}`;
-    if (deckSemBadge) deckSemBadge.innerText = `Semester ${currentSem}`;
+  if (currentSem === 8) {
+    if (deckTitle) deckTitle.innerText = "Capstone Major Project & Internship";
+    if (deckCode) deckCode.innerText = "SEM-8";
+    if (deckDesc) deckDesc.innerText = "Full-time 8th semester industry internship and capstone major project.";
+    if (deckSemBadge) deckSemBadge.innerText = "Semester 8";
     if (deckAkashBadge) deckAkashBadge.classList.add("hidden");
     if (gridContainer) gridContainer.innerHTML = "";
     if (emptyContainer) {
       emptyContainer.classList.remove("hidden");
       const emptyH4 = emptyContainer.querySelector("h4");
       const emptyP = emptyContainer.querySelector("p");
-      if (emptyH4) emptyH4.innerText = currentSem === 8 ? "Semester 8 Capstone Term" : "No materials found";
-      if (emptyP) emptyP.innerText = currentSem === 8 ? "GGSIPU 8th Semester consists of the full-time Major Industry Project/Internship with no theoretical exams." : "No uploaded materials for this subject yet.";
+      if (emptyH4) emptyH4.innerText = "Semester 8 Capstone Term";
+      if (emptyP) emptyP.innerText = "GGSIPU 8th Semester consists of the full-time Major Industry Project/Internship with no theoretical exams.";
     }
+    if (deckCountBadge) deckCountBadge.innerText = "0 Materials";
     return;
   }
 
-  // Update header details
-  if (deckTitle) deckTitle.innerText = activeSubj.name || state.vaultSubject;
-  if (deckCode) deckCode.innerText = activeSubj.code || `SEM-${currentSem}`;
-  if (deckSemBadge) deckSemBadge.innerText = `Semester ${currentSem}`;
+  const isAllSubjects = (state.vaultSubject === 'all' || !state.vaultSubject);
+  const activeSubj = !isAllSubjects ? subjectsObj[state.vaultSubject] : null;
 
-  // Check if subject has an Akash guide
-  const hasAkash = Object.entries(activeSubj.categories || {}).some(([cname, arr]) => 
-    cname.includes("Akash") || arr.some(i => (i.tags && i.tags.includes("Akash")) || /akash/i.test(i.title))
-  );
+  let allItems = [];
+  let hasAkash = false;
+
+  if (isAllSubjects) {
+    if (deckTitle) deckTitle.innerText = `All Semester ${currentSem} Materials`;
+    if (deckCode) deckCode.innerText = `SEM-${currentSem} • ALL`;
+    if (deckDesc) deckDesc.innerText = `Showing all study materials, solved question banks, and notes across Semester ${currentSem}.`;
+    if (deckSemBadge) deckSemBadge.innerText = `Semester ${currentSem}`;
+
+    Object.values(subjectsObj).forEach(subj => {
+      Object.entries(subj.categories || {}).forEach(([catName, arr]) => {
+        allItems = allItems.concat(arr);
+        if (catName.includes("Akash") || arr.some(i => (i.tags && i.tags.includes("Akash")) || /akash/i.test(i.title))) {
+          hasAkash = true;
+        }
+      });
+    });
+  } else if (activeSubj) {
+    if (deckTitle) deckTitle.innerText = activeSubj.name || state.vaultSubject;
+    if (deckCode) deckCode.innerText = activeSubj.code || `SEM-${currentSem}`;
+    if (deckDesc) deckDesc.innerText = `Showing study materials, solved question banks, and class notes for ${activeSubj.name || state.vaultSubject}.`;
+    if (deckSemBadge) deckSemBadge.innerText = `Semester ${currentSem}`;
+
+    Object.entries(activeSubj.categories || {}).forEach(([catName, arr]) => {
+      allItems = allItems.concat(arr);
+      if (catName.includes("Akash") || arr.some(i => (i.tags && i.tags.includes("Akash")) || /akash/i.test(i.title))) {
+        hasAkash = true;
+      }
+    });
+  } else {
+    // Subject was not found in this semester, fallback to 'all'
+    state.vaultSubject = 'all';
+    renderVaultResourceDeck();
+    return;
+  }
+
   if (deckAkashBadge) {
     if (hasAkash) deckAkashBadge.classList.remove("hidden");
     else deckAkashBadge.classList.add("hidden");
   }
 
-  // Collect and filter items
-  let allItems = [];
-  Object.values(activeSubj.categories || {}).forEach(arr => {
-    allItems = allItems.concat(arr);
-  });
-
+  // Filter items by category pill
   const catFilter = state.vaultCategoryFilter || 'all';
   let filtered = allItems.filter(r => {
     const isAkashItem = r.category === 'Akash Solved Question Banks' || (r.tags && r.tags.includes('Akash')) || (r.title && /akash/i.test(r.title));
@@ -897,7 +987,9 @@ function renderVaultResourceDeck() {
       const emptyH4 = emptyContainer.querySelector("h4");
       const emptyP = emptyContainer.querySelector("p");
       if (emptyH4) emptyH4.innerText = "No materials found in this category";
-      if (emptyP) emptyP.innerText = "Try switching category filters or check back shortly as more documents are synced.";
+      if (emptyP) emptyP.innerText = state.typesetOnly 
+        ? "No typeset official papers found. Click '💎 Typeset Only' to show all uploaded documents."
+        : "Try selecting '⚡ All Materials' or another subject in the rail.";
     }
   } else {
     if (emptyContainer) emptyContainer.classList.add("hidden");
@@ -906,7 +998,9 @@ function renderVaultResourceDeck() {
     }
   }
 
-  lucide.createIcons();
+  if (window.lucide) {
+    lucide.createIcons();
+  }
 }
 
 function applyVaultSearchSuggestion(tag) {

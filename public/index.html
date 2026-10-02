@@ -349,8 +349,9 @@
 
         <!-- STEP 2: TOP-LEVEL INTENT FILTER TABS (All / Akash / Notes / PYQs / Lab Manuals) -->
         <div class="p-1.5 rounded-xl bg-zinc-900/70 border border-white/5 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
-          <button onclick="setVaultCategoryFilter('all')" id="v-cat-all" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-white bg-emerald-600 font-semibold shadow-sm transition-all whitespace-nowrap">
-            ⚡ All Materials
+          <button onclick="setVaultCategoryFilter('all')" id="v-cat-all" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-white bg-emerald-600 font-semibold shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5">
+            <span>⚡ All Materials</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-white/20 text-white font-bold" id="sem-all-count">0</span>
           </button>
           <button onclick="setVaultCategoryFilter('akash')" id="v-cat-akash" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 whitespace-nowrap">
             <span>📚 Akash Solved Banks</span>
@@ -2177,6 +2178,6 @@
   </div>
 
   <!-- Client Application Script -->
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2.2.0"></script>
 </body>
 </html>
