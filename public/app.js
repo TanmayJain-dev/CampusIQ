@@ -849,24 +849,36 @@ function renderResourceCardHtml(r) {
           : `<span class="px-2 py-0.5 rounded text-[9px] font-mono text-zinc-400 bg-zinc-800 border border-white/5">📄 PYQ / PAPER</span>`)));
 
   const cleanTitle = (r.title || '').replace(/^\[typeset\]\s*/i, '').replace(/^typeset\s*[-:]?\s*/i, '').replace(/_Typeset$/i, '').trim();
-  const safeTitle = cleanTitle.replace(/'/g, "\'");
+  const safeTitle = cleanTitle.replace(/'/g, "\\'");
   const encodedPath = encodeURIComponent(r.relative_path || '');
   const driveId = r.drive_file_id || '';
   const viewUrl = driveId ? `/api/resources/view?id=${encodeURIComponent(driveId)}&path=${encodedPath}` : `/api/resources/view?path=${encodedPath}`;
 
+  const descHtml = r.description
+    ? `<p class="text-[11px] text-zinc-400 leading-relaxed line-clamp-2">${escapeHtml(r.description)}</p>`
+    : '';
+
+  const badgeHtml = r.content_badge
+    ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-zinc-800 text-zinc-300 border border-white/5">${escapeHtml(r.content_badge)}</span>`
+    : '';
+
   return `
-    <div class="p-4 rounded-xl bg-zinc-900/90 border border-white/10 hover:border-emerald-500/30 transition-all flex flex-col justify-between space-y-3">
+    <div class="p-4 rounded-xl bg-zinc-900/90 border border-white/10 hover:border-emerald-500/30 transition-all flex flex-col justify-between space-y-3 group">
       <div class="space-y-2">
-        <div class="flex items-center justify-between gap-1.5">
+        <div class="flex items-center justify-between gap-1.5 flex-wrap">
           ${typesetBadge}
-          <span class="text-[10px] font-mono text-zinc-500">${r.exam_session || 'Official'}</span>
+          <div class="flex items-center gap-1.5">
+            ${badgeHtml}
+            <span class="text-[10px] font-mono text-zinc-500">${r.exam_session || 'Official'}</span>
+          </div>
         </div>
-        <h4 class="text-xs font-semibold text-white leading-snug line-clamp-2 hover:text-emerald-400 transition-colors cursor-pointer" onclick="openPdfPreview('${safeTitle}', '${r.relative_path}', '${driveId}')">
+        <h4 class="text-xs font-semibold text-white leading-snug hover:text-emerald-400 transition-colors cursor-pointer line-clamp-2" onclick="openPdfPreview('${safeTitle}', '${r.relative_path}', '${driveId}')" title="${escapeHtml(cleanTitle)}">
           ${cleanTitle}
         </h4>
-        <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5">
-          <span>${r.subject_code || 'CODE'}</span>
-          <span>${r.size_kb ? r.size_kb + ' KB' : 'PDF'}</span>
+        ${descHtml}
+        <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1.5 border-t border-white/5">
+          <span class="text-zinc-400 font-medium">${r.subject_code || 'CODE'}</span>
+          <span>${r.subject || ''}</span>
         </div>
       </div>
 
@@ -1034,6 +1046,8 @@ function handleUniversalResourceSearch() {
   const filtered = (state.resources || []).filter(r => {
     const matchQuery =
       (r.title && r.title.toLowerCase().includes(query)) ||
+      (r.description && r.description.toLowerCase().includes(query)) ||
+      (r.filename && r.filename.toLowerCase().includes(query)) ||
       (r.subject && r.subject.toLowerCase().includes(query)) ||
       (r.subject_code && r.subject_code.toLowerCase().includes(query)) ||
       (r.category && r.category.toLowerCase().includes(query)) ||

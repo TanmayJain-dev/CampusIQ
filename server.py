@@ -787,7 +787,14 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         if typeset_only:
             filtered = [r for r in filtered if r.get("is_typeset", False)]
         if search:
-            filtered = [r for r in filtered if search in r.get("title", "").lower() or search in r.get("subject", "").lower()]
+            filtered = [
+                r for r in filtered
+                if search in r.get("title", "").lower()
+                or search in r.get("subject", "").lower()
+                or search in r.get("filename", "").lower()
+                or search in r.get("description", "").lower()
+                or any(search in t.lower() for t in r.get("tags", []))
+            ]
 
         self._send_json({
             "status": "success",

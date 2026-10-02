@@ -11,6 +11,7 @@ import re
 import json
 from typing import Dict, List, Any
 from campusiq_cataloguer import SUBJECT_CODE_MAP
+from scripts.enhance_vault_metadata import generate_clean_metadata
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 VAULT_DRIVE_MAP_FILE = os.path.join(PROJECT_DIR, "data", "vault_drive_map.json")
@@ -97,8 +98,13 @@ def extract_meta_from_drive_path(rel_path: str, drive_id: str) -> Dict[str, Any]
     else:
         exam_session = "Standard"
 
-    title_base = os.path.splitext(fname)[0].replace("_Typeset", "").replace("_typeset", "").replace("_", " ").strip()
-    display_title = title_base
+    clean_title, description, badge = generate_clean_metadata({
+        "filename": fname,
+        "relative_path": rel_path,
+        "subject": subject,
+        "category": category,
+        "exam_session": exam_session
+    })
 
     tags = []
     if semester:
@@ -108,12 +114,16 @@ def extract_meta_from_drive_path(rel_path: str, drive_id: str) -> Dict[str, Any]
     if subject_code != "GEN-000":
         tags.append(subject_code)
     tags.append(category)
+    if badge:
+        tags.append(badge)
     if is_typeset:
         tags.append("Typeset Master")
 
     return {
         "id": f"ciq_{abs(hash(rel_path)) % 1000000:06d}",
-        "title": display_title,
+        "title": clean_title,
+        "description": description,
+        "content_badge": badge,
         "filename": fname,
         "subject": subject,
         "subject_code": subject_code,
