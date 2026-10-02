@@ -170,6 +170,96 @@ def build_tree_from_catalog(catalog: List[Dict[str, Any]]) -> Dict[str, Any]:
         "semesters": {str(k): v for k, v in sorted(tree.items())}
     }
 
+def consolidate_and_pair_catalog(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # 1. Deduplicate near-identical files in the same semester, subject & category
+    dedup_dict = {}
+    for item in items:
+        norm_fn = re.sub(r'[\s\-_]+', '', item['filename'].lower())
+        key = (item['semester'], item['subject'], item['category'], norm_fn)
+        if key not in dedup_dict:
+            dedup_dict[key] = item
+        else:
+            existing = dedup_dict[key]
+            # Keep the cleaner filename (avoiding copies with (1))
+            if '(1)' in existing['filename'] and '(1)' not in item['filename']:
+                dedup_dict[key] = item
+
+    filtered = list(dedup_dict.values())
+    typeset_items = [x for x in filtered if x.get("is_typeset")]
+    raw_only = [x for x in filtered if not x.get("is_typeset")]
+
+    def match_score(t: Dict[str, Any], r: Dict[str, Any]) -> int:
+        if t.get("semester") != r.get("semester") or t.get("subject") != r.get("subject"):
+            return -1
+        t_fn = t["filename"].lower()
+        r_fn = r["filename"].lower()
+        score = 0
+        yt = re.findall(r"20\d\d", t_fn)
+        yr = re.findall(r"20\d\d", r_fn)
+        if not yr:
+            for yy in ["22", "23", "24", "25", "26"]:
+                if yy in r_fn:
+                    yr = ["20" + yy]
+                    break
+        if yt and yr:
+            if set(yt).intersection(set(yr)):
+                score += 10
+            else:
+                return -1
+        is_mid_t = "mid" in t_fn or "classtest" in t_fn
+        is_mid_r = "mid" in r_fn or "classtest" in r_fn or "class test" in r_fn
+        is_end_t = "end" in t_fn
+        is_end_r = "end" in r_fn or "dec" in r_fn or "jan" in r_fn or "feb" in r_fn
+        if is_mid_t and is_mid_r:
+            score += 5
+        elif is_end_t and is_end_r:
+            score += 5
+        elif is_mid_t != is_mid_r and is_end_t != is_end_r:
+            return -1
+        return score
+
+    matched_raw_ids = set()
+    consolidated = []
+
+    for t in typeset_items:
+        candidates = []
+        for r in raw_only:
+            sc = match_score(t, r)
+            if sc > 0:
+                candidates.append((sc, r))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        if candidates:
+            best_r = candidates[0][1]
+            t["has_typeset"] = True
+            t["has_raw"] = True
+            t["typeset_drive_id"] = t["drive_file_id"]
+            t["typeset_relative_path"] = t["relative_path"]
+            t["raw_drive_id"] = best_r["drive_file_id"]
+            t["raw_relative_path"] = best_r["relative_path"]
+            t["content_badge"] = "TYPESET + RAW"
+            t["tags"] = list(set(t.get("tags", []) + ["Typeset Master", "Raw Scan Available"]))
+            matched_raw_ids.add(best_r["id"])
+        else:
+            t["has_typeset"] = True
+            t["has_raw"] = False
+            t["typeset_drive_id"] = t["drive_file_id"]
+            t["typeset_relative_path"] = t["relative_path"]
+            t["raw_drive_id"] = None
+            t["raw_relative_path"] = None
+        consolidated.append(t)
+
+    for r in raw_only:
+        if r["id"] not in matched_raw_ids:
+            r["has_typeset"] = False
+            r["has_raw"] = True
+            r["raw_drive_id"] = r["drive_file_id"]
+            r["raw_relative_path"] = r["relative_path"]
+            r["typeset_drive_id"] = None
+            r["typeset_relative_path"] = None
+            consolidated.append(r)
+
+    return consolidated
+
 def main():
     if not os.path.exists(VAULT_DRIVE_MAP_FILE):
         print(f"[!] Map file not found: {VAULT_DRIVE_MAP_FILE}")
@@ -181,18 +271,23 @@ def main():
     files = vmap.get("files", {})
     print(f"[*] Processing {len(files)} files from Google Drive vault map...")
 
-    catalog = []
+    raw_parsed = []
     valid_exts = {".pdf", ".docx", ".jpg", ".jpeg", ".png", ".pptx"}
 
     for rel_path, drive_id in files.items():
         ext = os.path.splitext(rel_path)[1].lower()
         if ext not in valid_exts:
             continue
+        if ".crdownload" in rel_path.lower():
+            continue
         if any(ignored in rel_path for ignored in [".py", ".tmp", "desktop.ini"]):
             continue
 
         item = extract_meta_from_drive_path(rel_path, drive_id)
-        catalog.append(item)
+        raw_parsed.append(item)
+
+    print(f"[*] Cleaned {len(raw_parsed)} raw items, pairing typeset masters with scans...")
+    catalog = consolidate_and_pair_catalog(raw_parsed)
 
     catalog.sort(key=lambda x: (
         x["semester"] or 0,
@@ -213,6 +308,7 @@ def main():
         json.dump(result, f, indent=2)
 
     print(f"✅ Generated {len(catalog)} verified study items into {CATALOG_CACHE_FILE}")
+    print(f"✅ Dual (Typeset + Raw): {sum(1 for x in catalog if x.get('has_typeset') and x.get('has_raw'))}")
     print(f"✅ Hierarchical tree contains {tree['total_semesters']} semesters, {sum(len(s['subjects']) for s in tree['semesters'].values())} subjects")
 
 if __name__ == "__main__":

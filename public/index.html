@@ -1326,11 +1326,24 @@
   <!-- ========================================================================= -->
   <div id="pdf-modal" class="modal-backdrop" onclick="closePdfModalOnBackdrop(event)">
     <div class="modal-content max-w-5xl h-[92vh] sm:h-[88vh] flex flex-col p-0 overflow-hidden" onclick="event.stopPropagation()">
-      <div class="p-3 sm:p-3.5 bg-zinc-900/90 border-b border-white/10 flex items-center justify-between">
-        <div class="flex items-center gap-2 overflow-hidden pr-2">
-          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-          <span id="pdf-modal-title" class="text-xs font-semibold text-white truncate max-w-[160px] sm:max-w-md">Paper Preview</span>
+      <div class="p-3 sm:p-3.5 bg-zinc-900/95 border-b border-white/10 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2 overflow-hidden pr-2 min-w-0">
+          <i id="pdf-modal-icon" data-lucide="sparkles" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+          <span id="pdf-modal-title" class="text-xs font-semibold text-white truncate max-w-[160px] sm:max-w-xs md:max-w-md">Paper Preview</span>
         </div>
+
+        <!-- DUAL VERSION TOGGLE SWITCHER -->
+        <div id="pdf-version-switcher" class="hidden items-center bg-zinc-950 p-0.5 rounded-lg border border-white/10 text-xs shrink-0 order-3 sm:order-none w-full sm:w-auto justify-center sm:justify-start">
+          <button id="btn-view-typeset" onclick="switchPdfViewVersion('typeset')" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-1.5 transition-all shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>✨ Typeset Master</span>
+          </button>
+          <button id="btn-view-raw" onclick="switchPdfViewVersion('raw')" class="px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-zinc-400"></i>
+            <span>📄 Original Scan</span>
+          </button>
+        </div>
+
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <a id="pdf-external-btn" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-medium flex items-center gap-1 transition-all" title="Open full paper in new tab">
             <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
@@ -1338,7 +1351,7 @@
           </a>
           <a id="pdf-download-btn" href="#" download class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1.5 transition-all" title="Download PDF directly">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            <span class="hidden xs:inline">Download</span>
+            <span id="pdf-download-text" class="hidden xs:inline">Download</span>
           </a>
           <button onclick="closePdfModal()" class="p-1.5 rounded-lg text-zinc-400 hover:text-white transition-all">
             <i data-lucide="x" class="w-4 h-4"></i>
@@ -2178,6 +2191,6 @@
   </div>
 
   <!-- Client Application Script -->
-  <script src="/app.js?v=2.3.0"></script>
+  <script src="/app.js?v=2.4.0"></script>
 </body>
 </html>

@@ -838,21 +838,30 @@ function renderResourceCardHtml(r) {
   const isPyq = (r.category && (r.category.includes('Paper') || r.category.includes('PYQ'))) || /mid sem|end sem|pyq/i.test(r.title);
   const isPract = (r.category && (r.category.includes('Practical') || r.category.includes('Lab')));
 
-  const typesetBadge = r.is_typeset
-    ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 OFFICIAL MASTER</span>`
-    : (isAkash
-      ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📚 AKASH GUIDE</span>`
-      : (isNotes
-        ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20">📝 LECTURE NOTE</span>`
-        : (isPract
-          ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium text-teal-400 bg-teal-500/10 border border-teal-500/20">🧪 LAB MANUAL</span>`
-          : `<span class="px-2 py-0.5 rounded text-[9px] font-mono text-zinc-400 bg-zinc-800 border border-white/5">📄 PYQ / PAPER</span>`)));
+  const isDual = !!(r.has_typeset && r.has_raw);
+  const typesetBadge = isDual
+    ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1"><i data-lucide="sparkles" class="w-2.5 h-2.5"></i> DUAL: MASTER + RAW</span>`
+    : (r.is_typeset || r.has_typeset
+      ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">💎 OFFICIAL MASTER</span>`
+      : (isAkash
+        ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📚 AKASH GUIDE</span>`
+        : (isNotes
+          ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20">📝 LECTURE NOTE</span>`
+          : (isPract
+            ? `<span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium text-teal-400 bg-teal-500/10 border border-teal-500/20">🧪 LAB MANUAL</span>`
+            : `<span class="px-2 py-0.5 rounded text-[9px] font-mono text-zinc-400 bg-zinc-800 border border-white/5">📄 PYQ / PAPER</span>`))));
 
   const cleanTitle = (r.title || '').replace(/^\[typeset\]\s*/i, '').replace(/^typeset\s*[-:]?\s*/i, '').replace(/_Typeset$/i, '').trim();
   const safeTitle = cleanTitle.replace(/'/g, "\\'");
   const encodedPath = encodeURIComponent(r.relative_path || '');
   const driveId = r.drive_file_id || '';
   const viewUrl = driveId ? `/api/resources/view?id=${encodeURIComponent(driveId)}&path=${encodedPath}` : `/api/resources/view?path=${encodedPath}`;
+
+  const rawPathEscaped = (r.raw_relative_path || '').replace(/'/g, "\\'");
+  const rawDriveId = r.raw_drive_id || '';
+  const hasTs = !!(r.has_typeset || r.is_typeset);
+  const hasRw = !!r.has_raw;
+  const clickArgs = `'${safeTitle}', '${r.relative_path}', '${driveId}', '${rawPathEscaped}', '${rawDriveId}', ${hasTs}, ${hasRw}`;
 
   const descHtml = r.description
     ? `<p class="text-[11px] text-zinc-400 leading-relaxed line-clamp-2">${escapeHtml(r.description)}</p>`
@@ -872,7 +881,7 @@ function renderResourceCardHtml(r) {
             <span class="text-[10px] font-mono text-zinc-500">${r.exam_session || 'Official'}</span>
           </div>
         </div>
-        <h4 class="text-xs font-semibold text-white leading-snug hover:text-emerald-400 transition-colors cursor-pointer line-clamp-2" onclick="openPdfPreview('${safeTitle}', '${r.relative_path}', '${driveId}')" title="${escapeHtml(cleanTitle)}">
+        <h4 class="text-xs font-semibold text-white leading-snug hover:text-emerald-400 transition-colors cursor-pointer line-clamp-2" onclick="openPdfPreview(${clickArgs})" title="${escapeHtml(cleanTitle)}">
           ${cleanTitle}
         </h4>
         ${descHtml}
@@ -883,9 +892,9 @@ function renderResourceCardHtml(r) {
       </div>
 
       <div class="flex items-center gap-2 pt-1 border-t border-white/5 text-xs">
-        <button onclick="openPdfPreview('${safeTitle}', '${r.relative_path}', '${driveId}')" class="flex-1 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95">
-          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-          <span>Preview</span>
+        <button onclick="openPdfPreview(${clickArgs})" class="flex-1 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95">
+          <i data-lucide="${hasTs ? 'sparkles' : 'eye'}" class="w-3.5 h-3.5 ${hasTs ? 'text-emerald-400' : ''}"></i>
+          <span>${isDual ? 'Master + Raw' : (hasTs ? 'Preview Master' : 'Preview')}</span>
         </button>
         <a href="${viewUrl}" download="${r.filename || 'document.pdf'}" class="px-3.5 py-2 sm:py-1.5 min-h-[38px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center justify-center gap-1.5 transition-all active:scale-95" title="Direct Download">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -1089,22 +1098,105 @@ function clearResourceSearch() {
 }
 
 
-function openPdfPreview(title, relPath, driveId = '') {
-  document.getElementById("pdf-modal-title").innerText = title;
-  const encodedPath = encodeURIComponent(relPath || '');
-  const streamUrl = driveId
-    ? `/api/resources/view?id=${encodeURIComponent(driveId)}&path=${encodedPath}`
+function openPdfPreview(title, relPath, driveId = '', rawRelPath = '', rawDriveId = '', hasTypeset = false, hasRaw = false) {
+  state.currentPreviewDoc = {
+    title: title,
+    typesetPath: hasTypeset ? relPath : null,
+    typesetDriveId: hasTypeset ? driveId : null,
+    rawPath: hasRaw ? (rawRelPath || relPath) : (!hasTypeset ? relPath : null),
+    rawDriveId: hasRaw ? (rawDriveId || driveId) : (!hasTypeset ? driveId : null),
+    hasTypeset: !!hasTypeset,
+    hasRaw: !!hasRaw,
+    activeVersion: hasTypeset ? 'typeset' : 'raw'
+  };
+
+  const titleEl = document.getElementById("pdf-modal-title");
+  if (titleEl) titleEl.innerText = title;
+
+  const switcher = document.getElementById("pdf-version-switcher");
+  if (switcher) {
+    if (hasTypeset && (hasRaw || rawRelPath || rawDriveId)) {
+      switcher.classList.remove("hidden");
+      switcher.classList.add("flex");
+    } else {
+      switcher.classList.add("hidden");
+      switcher.classList.remove("flex");
+    }
+  }
+
+  // Load typeset first by default if available, otherwise raw scan
+  switchPdfViewVersion(hasTypeset ? 'typeset' : 'raw');
+
+  const modal = document.getElementById("pdf-modal");
+  if (modal) modal.classList.add("open");
+}
+
+function switchPdfViewVersion(version) {
+  if (!state.currentPreviewDoc) return;
+  const doc = state.currentPreviewDoc;
+  doc.activeVersion = version;
+
+  const btnTypeset = document.getElementById("btn-view-typeset");
+  const btnRaw = document.getElementById("btn-view-raw");
+  const icon = document.getElementById("pdf-modal-icon");
+  const downloadText = document.getElementById("pdf-download-text");
+
+  let activePath = "";
+  let activeDriveId = "";
+
+  if (version === "typeset") {
+    activePath = doc.typesetPath || "";
+    activeDriveId = doc.typesetDriveId || "";
+    if (btnTypeset) {
+      btnTypeset.className = "px-2.5 py-1 rounded-md text-[11px] font-semibold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-1.5 transition-all shadow-sm";
+    }
+    if (btnRaw) {
+      btnRaw.className = "px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all";
+    }
+    if (icon) {
+      icon.setAttribute("data-lucide", "sparkles");
+      icon.className = "w-4 h-4 text-emerald-400 shrink-0";
+    }
+    if (downloadText) downloadText.innerText = "Master";
+  } else {
+    activePath = doc.rawPath || "";
+    activeDriveId = doc.rawDriveId || "";
+    if (btnRaw) {
+      btnRaw.className = "px-2.5 py-1 rounded-md text-[11px] font-semibold text-amber-400 bg-amber-500/15 border border-amber-500/30 flex items-center gap-1.5 transition-all shadow-sm";
+    }
+    if (btnTypeset) {
+      btnTypeset.className = "px-2.5 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all";
+    }
+    if (icon) {
+      icon.setAttribute("data-lucide", "file-text");
+      icon.className = "w-4 h-4 text-amber-400 shrink-0";
+    }
+    if (downloadText) downloadText.innerText = "Raw Scan";
+  }
+
+  const encodedPath = encodeURIComponent(activePath || "");
+  const streamUrl = activeDriveId
+    ? `/api/resources/view?id=${encodeURIComponent(activeDriveId)}&path=${encodedPath}`
     : `/api/resources/view?path=${encodedPath}`;
-  document.getElementById("pdf-iframe").src = streamUrl;
-  document.getElementById("pdf-download-btn").href = streamUrl;
+
+  const iframe = document.getElementById("pdf-iframe");
+  if (iframe) iframe.src = streamUrl;
+
+  const dlBtn = document.getElementById("pdf-download-btn");
+  if (dlBtn) dlBtn.href = streamUrl;
+
   const extBtn = document.getElementById("pdf-external-btn");
   if (extBtn) extBtn.href = streamUrl;
-  document.getElementById("pdf-modal").classList.add("open");
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function closePdfModal() {
-  document.getElementById("pdf-iframe").src = "about:blank";
-  document.getElementById("pdf-modal").classList.remove("open");
+  const iframe = document.getElementById("pdf-iframe");
+  if (iframe) iframe.src = "about:blank";
+  const modal = document.getElementById("pdf-modal");
+  if (modal) modal.classList.remove("open");
+  state.currentPreviewDoc = null;
 }
 
 function closePdfModalOnBackdrop(e) {
