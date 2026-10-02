@@ -218,109 +218,239 @@
 
 
     <!-- ========================================================================= -->
-    <!-- TAB 2: CAMPUSIQ ACADEMIC STUDY VAULT (HIERARCHICAL) -->
+    <!-- TAB 2: CAMPUSIQ ACADEMIC STUDY VAULT (HIERARCHICAL & GLOBAL SEARCH) -->
     <!-- ========================================================================= -->
     <section id="tab-resources" class="tab-pane hidden space-y-6">
       
-      <!-- Vault Header -->
-      <div class="p-6 rounded-2xl glass-card border border-white/10 relative overflow-hidden">
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium mb-3">
-              <i data-lucide="gem" class="w-3.5 h-3.5"></i>
-              Official Academic Resource Vault
+      <!-- Vault Hero & Live Metrics Banner -->
+      <div class="p-6 sm:p-7 rounded-2xl glass-card border border-white/10 relative overflow-hidden bg-gradient-to-b from-zinc-900/90 via-zinc-900/60 to-zinc-950/80">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+          <div class="space-y-1.5">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>All 8 Semesters • 100% Headless Cloud Stream</span>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Hierarchical Academic Library
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <span>B.Tech Academic Vault</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-white/10 uppercase">Sem 1–8</span>
             </h1>
-            <p class="text-zinc-400 text-sm mt-1 max-w-2xl">
-              Curated, publication-grade typeset university examination papers organized hierarchically by semester, subject, and session.
+            <p class="text-zinc-400 text-xs sm:text-sm max-w-2xl leading-relaxed">
+              Complete engineering repository: Akash 10-year solved question banks, classroom lecture notes, verified past university exam papers, and practical manuals.
             </p>
           </div>
-          <div class="flex items-center gap-3">
-            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
-              <span id="stat-typeset-count" class="text-lg font-bold text-emerald-400">111</span>
-              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Official Papers</span>
+
+          <!-- Quick Metrics Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto shrink-0">
+            <div class="bg-zinc-900/90 p-3 rounded-xl border border-white/5 text-center">
+              <span id="stat-total-resources" class="text-lg font-bold text-white block">776</span>
+              <span class="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Total Items</span>
             </div>
-            <div class="bg-zinc-900/80 px-4 py-2.5 rounded-xl border border-white/5 text-center">
-              <span id="stat-total-resources" class="text-lg font-bold text-blue-400">111</span>
-              <span class="block text-[10px] text-zinc-500 uppercase font-mono">Total Papers</span>
+            <div class="bg-zinc-900/90 p-3 rounded-xl border border-amber-500/20 text-center">
+              <span id="stat-akash-count" class="text-lg font-bold text-amber-400 block">51</span>
+              <span class="text-[10px] text-amber-400/80 uppercase font-mono tracking-wider">Akash Guides</span>
+            </div>
+            <div class="bg-zinc-900/90 p-3 rounded-xl border border-cyan-500/20 text-center">
+              <span id="stat-notes-count" class="text-lg font-bold text-cyan-400 block">413</span>
+              <span class="text-[10px] text-cyan-400/80 uppercase font-mono tracking-wider">Lecture Notes</span>
+            </div>
+            <div class="bg-zinc-900/90 p-3 rounded-xl border border-emerald-500/20 text-center">
+              <span id="stat-typeset-count" class="text-lg font-bold text-emerald-400 block">111</span>
+              <span class="text-[10px] text-emerald-400/80 uppercase font-mono tracking-wider">Typeset Masters</span>
             </div>
           </div>
         </div>
 
-        <!-- Universal Instant Search Bar -->
-        <div class="mt-6 pt-6 border-t border-white/5">
+        <!-- THE PROMINENT UNIVERSAL SEARCH BAR ("Up There") -->
+        <div class="mt-6 pt-5 border-t border-white/10 space-y-3">
           <div class="relative flex items-center">
-            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 text-zinc-400"></i>
-            <input type="text" id="resource-search" placeholder="Search any document by name, topic, paper code, session (e.g. data structures, am-2, mid sem, 2024)..." oninput="handleUniversalResourceSearch()" class="w-full pl-10 pr-24 py-2.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all">
-            <button id="resource-search-clear" onclick="clearResourceSearch()" class="hidden absolute right-3 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-400 hover:text-white font-mono">CLEAR</button>
+            <i data-lucide="search" class="w-5 h-5 absolute left-4 text-emerald-400 pointer-events-none"></i>
+            <input
+              type="text"
+              id="resource-search"
+              placeholder="Search 800+ documents across all 8 semesters (e.g. Data Structures Akash, Chemistry Notes, AM-2 PYQ, Dec 2024)..."
+              oninput="handleUniversalResourceSearch()"
+              class="w-full pl-12 pr-28 py-3.5 rounded-xl bg-zinc-950/90 border border-white/15 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+            >
+            <div class="absolute right-3.5 flex items-center gap-2">
+              <button
+                id="resource-search-clear"
+                onclick="clearResourceSearch()"
+                class="hidden px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-300 hover:text-white font-mono transition-all"
+              >CLEAR</button>
+              <kbd class="hidden sm:inline-block px-2 py-1 rounded bg-zinc-800/80 text-[10px] text-zinc-400 font-mono border border-white/5">/</kbd>
+            </div>
           </div>
-          <div id="resource-search-status" class="hidden mt-2 text-xs text-zinc-400 flex items-center justify-between">
-            <span id="resource-search-count">0 matching documents found</span>
-            <span class="text-[10px] font-mono text-zinc-500">Universal Index Search</span>
+
+          <!-- Quick Suggestion Filter Badges -->
+          <div class="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+            <span class="text-[11px] text-zinc-500 font-mono uppercase tracking-wider">Quick Suggestions:</span>
+            <button onclick="applyVaultSearchSuggestion('Akash')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium transition-all flex items-center gap-1.5">
+              <span>📚 Akash 10-Yr Guides</span>
+            </button>
+            <button onclick="applyVaultSearchSuggestion('Notes')" class="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium transition-all flex items-center gap-1.5">
+              <span>📝 Handwritten Notes</span>
+            </button>
+            <button onclick="applyVaultSearchSuggestion('Mid Sem')" class="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium transition-all flex items-center gap-1.5">
+              <span>🎯 Mid-Term PYQs</span>
+            </button>
+            <button onclick="applyVaultSearchSuggestion('End Sem')" class="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 font-medium transition-all flex items-center gap-1.5">
+              <span>🏁 End-Term University Papers</span>
+            </button>
+            <button onclick="toggleTypesetOnlyFilter()" id="btn-quick-typeset" class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 font-medium transition-all flex items-center gap-1.5">
+              <span>💎 Typeset Masters Only</span>
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Search Results Container (Shown when search is active) -->
       <div id="vault-search-results-container" class="hidden space-y-4">
-        <div class="flex items-center justify-between pb-2 border-b border-white/5">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i data-lucide="search" class="w-4 h-4 text-emerald-400"></i>
-            Search Results
-          </h3>
-          <span class="text-xs text-zinc-500 font-mono" id="search-results-summary">Showing matches</span>
+        <div class="flex items-center justify-between pb-3 border-b border-white/10 flex-wrap gap-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <i data-lucide="search" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>Universal Search Results</span>
+                <span id="resource-search-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">0 matches</span>
+              </h3>
+              <p class="text-[11px] text-zinc-400 font-mono" id="search-results-summary">Searching all 8 semesters...</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="clearResourceSearch()" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs text-zinc-300 hover:text-white transition-all">
+              Back to Curriculum Explorer
+            </button>
+          </div>
         </div>
-        <div id="vault-search-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div id="vault-search-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           <!-- Populated dynamically -->
         </div>
       </div>
 
-      <!-- Hierarchical Tree Navigation (Default View) -->
+      <!-- CURRICULUM EXPLORER (Default Hierarchical Workspace) -->
       <div id="vault-hierarchical-container" class="space-y-6">
-        <!-- Tier 1: Semester Selector Tabs -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
-          <button onclick="setVaultSemester(3)" id="vault-sem-btn-3" class="vault-sem-btn px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold flex items-center gap-2 transition-all shadow-[0_0_12px_rgba(16,185,129,0.3)]">
-            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-            <span>Semester 3 (Current)</span>
-            <span class="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono" id="sem3-count">5 Subjects</span>
-          </button>
-          <button onclick="setVaultSemester(2)" id="vault-sem-btn-2" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
-            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-            <span>Semester 2</span>
-            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem2-count">6 Subjects</span>
-          </button>
-          <button onclick="setVaultSemester(1)" id="vault-sem-btn-1" class="vault-sem-btn px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white font-semibold flex items-center gap-2 transition-all">
-            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-            <span>Semester 1</span>
-            <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono" id="sem1-count">5 Subjects</span>
-          </button>
-          <label class="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/90 border border-white/10 text-zinc-300 cursor-pointer select-none">
-            <input type="checkbox" id="typeset-only-toggle" checked onchange="toggleTypesetOnlyFilter()" class="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0">
-            <span class="text-[11px] font-semibold text-emerald-400">💎 Typeset Only</span>
-          </label>
-        </div>
-
-        <!-- Tier 2: Subject Explorer Cards Grid -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
-            <span>SELECT SUBJECT</span>
-            <span id="active-sem-label" class="text-emerald-400 font-semibold">Semester 3 Curriculum</span>
+        
+        <!-- STEP 1: DYNAMIC 8-SEMESTER TABS SELECTOR -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono px-1">
+            <span class="flex items-center gap-1.5 text-zinc-300 font-semibold uppercase tracking-wider">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-400"></i>
+              Select Semester (1 to 8)
+            </span>
+            <span id="active-sem-stat-badge" class="text-emerald-400 font-medium">Semester 3 Selected</span>
           </div>
-          <div id="vault-subject-pills" class="flex flex-wrap gap-2 text-xs">
-            <!-- Dynamically populated subject buttons -->
+          
+          <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs" id="vault-semester-tabs">
+            <!-- Dynamically populated Semesters 1 through 8 buttons -->
           </div>
         </div>
 
-        <!-- Tier 3: Categorized Trays Under Active Subject -->
-        <div id="vault-category-trays" class="space-y-6 pt-2">
-          <!-- Populated dynamically with Notes, Books, Mid-Sems, End-Sems, Lab Files, Syllabus -->
+        <!-- STEP 2: TOP-LEVEL INTENT FILTER TABS (All / Akash / Notes / PYQs / Lab Manuals) -->
+        <div class="p-1.5 rounded-xl bg-zinc-900/70 border border-white/5 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
+          <button onclick="setVaultCategoryFilter('all')" id="v-cat-all" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-white bg-emerald-600 font-semibold shadow-sm transition-all whitespace-nowrap">
+            ⚡ All Materials
+          </button>
+          <button onclick="setVaultCategoryFilter('akash')" id="v-cat-akash" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 whitespace-nowrap">
+            <span>📚 Akash Solved Banks</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20" id="sem-akash-count">0</span>
+          </button>
+          <button onclick="setVaultCategoryFilter('notes')" id="v-cat-notes" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 whitespace-nowrap">
+            <span>📝 Lecture Notes</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" id="sem-notes-count">0</span>
+          </button>
+          <button onclick="setVaultCategoryFilter('pyqs')" id="v-cat-pyqs" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 whitespace-nowrap">
+            <span>🎯 Past Year Papers</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20" id="sem-pyq-count">0</span>
+          </button>
+          <button onclick="setVaultCategoryFilter('practicals')" id="v-cat-practicals" class="vault-cat-pill px-3.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 whitespace-nowrap">
+            <span>🧪 Lab Manuals & Files</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400" id="sem-practicals-count">0</span>
+          </button>
         </div>
+
+        <!-- STEP 3: TWO-COLUMN SPLIT WORKSPACE (Subject Rail + Resource Deck) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          
+          <!-- LEFT COLUMN: SUBJECT RAIL (1/3 Width) -->
+          <div class="lg:col-span-4 xl:col-span-3 space-y-3">
+            <div class="p-4 rounded-2xl glass-card border border-white/10 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <i data-lucide="book-open" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  Subjects (<span id="rail-subjects-count">0</span>)
+                </span>
+                <span class="text-[10px] font-mono text-zinc-500" id="rail-semester-tag">Sem 3</span>
+              </div>
+              
+              <!-- Subject Filter Search Input -->
+              <div class="relative">
+                <i data-lucide="filter" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+                <input
+                  type="text"
+                  id="vault-subject-filter-input"
+                  placeholder="Filter subjects..."
+                  oninput="filterVaultSubjects()"
+                  class="w-full pl-9 pr-3 py-1.5 rounded-lg bg-zinc-900/90 border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-all"
+                >
+              </div>
+
+              <!-- Scrollable Subject Cards List -->
+              <div id="vault-subject-list" class="space-y-1.5 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+                <!-- Dynamically populated subject buttons -->
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: RESOURCE DECK (2/3 Width) -->
+          <div class="lg:col-span-8 xl:col-span-9 space-y-4">
+            
+            <!-- Active Subject Header Bar -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span id="deck-subject-code" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">CIC-209</span>
+                  <span id="deck-semester-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400 border border-white/5">Semester 3</span>
+                  <span id="deck-akash-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📚 AKASH AVAILABLE</span>
+                </div>
+                <h2 id="deck-subject-title" class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+                  Data Structures
+                </h2>
+                <p id="deck-subject-desc" class="text-xs text-zinc-400 mt-0.5">Showing all study materials, solved question banks, and class notes.</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span id="deck-items-count-badge" class="px-3 py-1.5 rounded-xl bg-zinc-900 border border-white/10 text-xs font-mono text-zinc-300 font-semibold">
+                  0 Documents
+                </span>
+              </div>
+            </div>
+
+            <!-- Resource Cards Grid -->
+            <div id="vault-deck-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              <!-- Dynamically populated resource cards -->
+            </div>
+
+            <!-- Empty State Container -->
+            <div id="vault-deck-empty" class="hidden p-12 text-center rounded-2xl glass-card border border-white/5 space-y-3">
+              <i data-lucide="folder-search" class="w-10 h-10 text-zinc-600 mx-auto"></i>
+              <div class="space-y-1">
+                <h4 class="text-sm font-semibold text-white">No materials found</h4>
+                <p class="text-xs text-zinc-400 max-w-sm mx-auto">There are no materials in this category for this subject yet.</p>
+              </div>
+              <button onclick="setVaultCategoryFilter('all')" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition-all">
+                Show All Materials
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
 
     </section>
-
 
     <!-- ========================================================================= -->
     <!-- TAB 3: GGSIPU RESULT & MARKSHEET HUB -->
