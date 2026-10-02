@@ -69,7 +69,26 @@ VAULT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "campusiq_vault_cache")
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
 _USERS: Dict[str, Dict[str, Any]] = {}
 ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "mait@admin2026")
-ACTIVE_ADMIN_SESSIONS: set = set()
+ADMIN_SESSIONS_FILE = os.path.join(PROJECT_DIR, "data", "admin_sessions.json")
+
+def load_admin_sessions() -> set:
+    if os.path.exists(ADMIN_SESSIONS_FILE):
+        try:
+            with open(ADMIN_SESSIONS_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+    return set()
+
+def save_admin_sessions():
+    try:
+        os.makedirs(os.path.dirname(ADMIN_SESSIONS_FILE), exist_ok=True)
+        with open(ADMIN_SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(ACTIVE_ADMIN_SESSIONS), f, indent=2)
+    except Exception:
+        pass
+
+ACTIVE_ADMIN_SESSIONS: set = load_admin_sessions()
 
 def load_vault_drive_map() -> Dict[str, Any]:
     if os.path.exists(VAULT_DRIVE_MAP_FILE):
@@ -1039,6 +1058,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         if hmac.compare_digest(passcode, ADMIN_SECRET_KEY):
             token = f"adm_{secrets.token_hex(24)}"
             ACTIVE_ADMIN_SESSIONS.add(token)
+            save_admin_sessions()
             self._send_json({
                 "status": "success",
                 "admin_token": token,

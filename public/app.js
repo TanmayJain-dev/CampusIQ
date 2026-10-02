@@ -2331,11 +2331,11 @@ let currentEditingStudent = null;
 let currentEditingStudentRoll = null;
 
 function isAdminAuthenticated() {
-  return !!sessionStorage.getItem("campusiq_admin_token");
+  return !!(sessionStorage.getItem("campusiq_admin_token") || localStorage.getItem("campusiq_admin_token"));
 }
 
 function getAdminToken() {
-  return sessionStorage.getItem("campusiq_admin_token") || "";
+  return sessionStorage.getItem("campusiq_admin_token") || localStorage.getItem("campusiq_admin_token") || "";
 }
 
 function getAdminAuthHeaders() {
@@ -2462,6 +2462,7 @@ async function submitAdminPasscode(event) {
     const adminToken = data.token || data.admin_token;
     if (res.ok && data.status === "success" && adminToken) {
       sessionStorage.setItem("campusiq_admin_token", adminToken);
+      localStorage.setItem("campusiq_admin_token", adminToken);
       closeAdminAuthModal();
       switchTab("admin");
       loadAdminRoster(true);
@@ -2490,6 +2491,7 @@ async function submitAdminPasscode(event) {
 
 function lockAdminPanel() {
   sessionStorage.removeItem("campusiq_admin_token");
+  localStorage.removeItem("campusiq_admin_token");
   if (window.location.hash === "#admin" || window.location.hash === "#admin-console") {
     history.replaceState(null, "", " ");
   }
@@ -3529,6 +3531,10 @@ async function fetchCurrentUser() {
       closeSignInGatekeeper();
       renderHeaderAuth(data.user, data.student);
       populateMyProfileUI(data.user, data.student);
+    } else if (state.currentUser) {
+      closeSignInGatekeeper();
+      renderHeaderAuth(state.currentUser, state.currentStudent);
+      populateMyProfileUI(state.currentUser, state.currentStudent);
     } else {
       clearClientSession();
     }
