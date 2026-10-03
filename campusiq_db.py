@@ -35,27 +35,64 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 # Detect engine
 USE_POSTGRES = False
 psycopg2 = None
+PG_POOL = None
+
 if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
     try:
         import psycopg2
         import psycopg2.extras
+        import psycopg2.pool
         USE_POSTGRES = True
     except ImportError:
         print("[!] Warning: DATABASE_URL is set but psycopg2 is not installed. Falling back to SQLite.", file=sys.stderr)
         USE_POSTGRES = False
 
 
+def get_pg_pool():
+    global PG_POOL
+    if PG_POOL is None and USE_POSTGRES and psycopg2:
+        try:
+            pg_url = DATABASE_URL
+            if pg_url.startswith("postgres://"):
+                pg_url = "postgresql://" + pg_url[11:]
+            PG_POOL = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=10,
+                dsn=pg_url,
+                cursor_factory=psycopg2.extras.RealDictCursor
+            )
+        except Exception as e:
+            print(f"[!] Warning initializing PostgreSQL pool: {e}", file=sys.stderr)
+            PG_POOL = None
+    return PG_POOL
+
+
 class DatabaseConnection:
-    """Context manager for obtaining a database connection with auto-commit/rollback."""
+    """Context manager for obtaining a database connection with auto-commit/rollback and connection pooling."""
+
+    def __init__(self):
+        self._from_pool = False
+        self.conn = None
 
     def __enter__(self):
+        pool = get_pg_pool()
+        if pool:
+            try:
+                self.conn = pool.getconn()
+                self._from_pool = True
+                return self.conn
+            except Exception as e:
+                print(f"[!] Pool getconn error: {e}, falling back to direct connection", file=sys.stderr)
+
         if USE_POSTGRES and psycopg2:
             # Render uses postgres:// which psycopg2 sometimes prefers as postgresql://
             pg_url = DATABASE_URL
             if pg_url.startswith("postgres://"):
                 pg_url = "postgresql://" + pg_url[11:]
             self.conn = psycopg2.connect(pg_url, cursor_factory=psycopg2.extras.RealDictCursor)
+            self._from_pool = False
         else:
+            self._from_pool = False
             os.makedirs(DATA_DIR, exist_ok=True)
             self.conn = sqlite3.connect(SQLITE_DB_PATH, timeout=20.0, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
@@ -68,10 +105,32 @@ class DatabaseConnection:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
-            self.conn.rollback()
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
         else:
-            self.conn.commit()
-        self.conn.close()
+            try:
+                self.conn.commit()
+            except Exception:
+                pass
+
+        if self._from_pool:
+            pool = get_pg_pool()
+            if pool and self.conn:
+                try:
+                    pool.putconn(self.conn)
+                except Exception:
+                    try:
+                        self.conn.close()
+                    except Exception:
+                        pass
+        else:
+            if self.conn:
+                try:
+                    self.conn.close()
+                except Exception:
+                    pass
 
 
 def get_db():

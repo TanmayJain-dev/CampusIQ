@@ -143,6 +143,7 @@ def normalize_paper_code(code: str) -> str:
 
 def solve_captcha_ocr(image_bytes: bytes) -> str:
     """Uses local Tesseract OCR to suggest the captcha characters."""
+    tmp_path = None
     try:
         from PIL import Image, ImageEnhance
         import io
@@ -159,14 +160,19 @@ def solve_captcha_ocr(image_bytes: bytes) -> str:
             "-c", "tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         ]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-            
         raw = res.stdout.strip()
         cleaned = re.sub(r"[^a-zA-Z0-9]", "", raw)
         return cleaned[:7]
+    except FileNotFoundError:
+        return ""
     except Exception:
         return ""
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 # =============================================================================

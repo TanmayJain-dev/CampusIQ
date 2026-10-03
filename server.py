@@ -68,8 +68,36 @@ VAULT_DRIVE_MAP_FILE = os.path.join(PROJECT_DIR, "data", "vault_drive_map.json")
 VAULT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "campusiq_vault_cache")
 _SESSIONS: Dict[str, Dict[str, Any]] = {}
 _USERS: Dict[str, Dict[str, Any]] = {}
-ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "mait@admin2026")
 ADMIN_SESSIONS_FILE = os.path.join(PROJECT_DIR, "data", "admin_sessions.json")
+ADMIN_SECRET_FILE = os.path.join(PROJECT_DIR, "data", ".admin_secret")
+
+def _init_admin_secret_key() -> str:
+    env_key = os.environ.get("ADMIN_SECRET_KEY", "").strip()
+    if env_key:
+        return env_key
+    if os.path.exists(ADMIN_SECRET_FILE):
+        try:
+            with open(ADMIN_SECRET_FILE, "r", encoding="utf-8") as f:
+                k = f.read().strip()
+                if k:
+                    return k
+        except Exception:
+            pass
+    if os.environ.get("RENDER") or os.environ.get("PRODUCTION"):
+        ephemeral = secrets.token_hex(32)
+        print("[!] CRITICAL SECURITY: ADMIN_SECRET_KEY was not set in production. Generated ephemeral key.", file=sys.stderr)
+        return ephemeral
+    generated = "mait@admin2026"
+    try:
+        os.makedirs(os.path.dirname(ADMIN_SECRET_FILE), exist_ok=True)
+        with open(ADMIN_SECRET_FILE, "w", encoding="utf-8") as f:
+            f.write(generated)
+        os.chmod(ADMIN_SECRET_FILE, 0o600)
+    except Exception:
+        pass
+    return generated
+
+ADMIN_SECRET_KEY = _init_admin_secret_key()
 
 def load_admin_sessions() -> set:
     if os.path.exists(ADMIN_SESSIONS_FILE):
@@ -99,17 +127,13 @@ def load_vault_drive_map() -> Dict[str, Any]:
             pass
     return {"files": {}, "folders": {}}
 
-def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
-    """Fetch raw file bytes directly from Google Drive headless without exposing any Drive URLs."""
+def get_google_drive_file_path(file_id: str) -> Optional[str]:
+    """Fetch raw file directly from Google Drive headless and save to disk cache in chunks without memory bloat."""
     try:
         os.makedirs(VAULT_CACHE_DIR, exist_ok=True)
         cache_path = os.path.join(VAULT_CACHE_DIR, f"{file_id}.pdf")
         if os.path.exists(cache_path) and os.path.getsize(cache_path) > 100:
-            try:
-                with open(cache_path, "rb") as f:
-                    return f.read()
-            except Exception:
-                pass
+            return cache_path
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -123,26 +147,47 @@ def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
             try:
                 req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=40) as resp:
-                    data = resp.read()
-                    if b"confirm=" in data and b"download" in data:
-                        m = re.search(r'confirm=([0-9a-zA-Z_-]+)', data.decode('utf-8', errors='ignore'))
+                    initial_chunk = resp.read(8192)
+                    if b"confirm=" in initial_chunk and b"download" in initial_chunk:
+                        m = re.search(r'confirm=([0-9a-zA-Z_-]+)', initial_chunk.decode('utf-8', errors='ignore'))
                         if m:
                             confirm_token = m.group(1)
                             confirm_url = f"{url}&confirm={confirm_token}"
                             creq = urllib.request.Request(confirm_url, headers=headers)
                             with urllib.request.urlopen(creq, timeout=60) as cresp:
-                                data = cresp.read()
-                    if data and len(data) > 200 and not data.startswith(b"<!DOCTYPE html"):
-                        try:
-                            with open(cache_path, "wb") as f:
-                                f.write(data)
-                        except Exception:
-                            pass
-                        return data
+                                with open(cache_path, "wb") as f_out:
+                                    while True:
+                                        chunk = cresp.read(65536)
+                                        if not chunk:
+                                            break
+                                        f_out.write(chunk)
+                                if os.path.exists(cache_path) and os.path.getsize(cache_path) > 200:
+                                    return cache_path
+                    elif not initial_chunk.startswith(b"<!DOCTYPE html") and len(initial_chunk) > 0:
+                        with open(cache_path, "wb") as f_out:
+                            f_out.write(initial_chunk)
+                            while True:
+                                chunk = resp.read(65536)
+                                if not chunk:
+                                    break
+                                f_out.write(chunk)
+                        if os.path.exists(cache_path) and os.path.getsize(cache_path) > 200:
+                            return cache_path
             except Exception as e:
                 print(f"[!] Drive stream error for {file_id}: {e}", file=sys.stderr)
     except Exception as e:
         print(f"[!] Drive fetch handler error: {e}", file=sys.stderr)
+    return None
+
+def fetch_google_drive_file(file_id: str) -> Optional[bytes]:
+    """Compatibility helper returning raw bytes."""
+    path = get_google_drive_file_path(file_id)
+    if path and os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                return f.read()
+        except Exception:
+            return None
     return None
 
 def load_auth_config() -> Dict[str, Any]:
@@ -644,6 +689,9 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/admin/students/"):
             roll_sub = path.split("/api/admin/students/")[1].strip()
             self.handle_api_admin_student_detail(roll_sub)
+        elif path.startswith("/api/"):
+            self._send_json({"status": "error", "message": f"API endpoint '{path}' not found."}, 404)
+            return
         elif path == "/" or not os.path.exists(os.path.join(PROJECT_DIR, "public", path.lstrip("/"))):
             # Fallback to index.html for SPA routing
             self.path = "/index.html"
@@ -832,7 +880,7 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
             return
 
         filename = os.path.basename(rel_path) if rel_path else f"document_{file_id}.pdf"
-        content = None
+        target_path = None
 
         # 1. Prioritize Google Drive headless stream (mapped via data/vault_drive_map.json or direct ?id=)
         drive_map = load_vault_drive_map()
@@ -855,33 +903,25 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                     break
 
         if target_id:
-            content = fetch_google_drive_file(target_id)
+            target_path = get_google_drive_file_path(target_id)
 
         # 2. Fallback to local files only if not in Drive and exists on disk
-        if content is None and rel_path and ACADEMIC_DIR and os.path.exists(ACADEMIC_DIR):
+        if not target_path and rel_path and ACADEMIC_DIR and os.path.exists(ACADEMIC_DIR):
             abs_path = os.path.abspath(os.path.join(ACADEMIC_DIR, rel_path))
             if abs_path.startswith(os.path.abspath(ACADEMIC_DIR)) and os.path.exists(abs_path):
-                try:
-                    with open(abs_path, "rb") as f:
-                        content = f.read()
-                    filename = os.path.basename(abs_path)
-                except Exception as e:
-                    print(f"[!] Error reading local file {abs_path}: {e}", file=sys.stderr)
+                target_path = abs_path
+                filename = os.path.basename(abs_path)
 
         # 3. Fallback to bundled repository assets if present
-        if content is None and rel_path and os.path.exists(BUNDLED_VAULT_DIR):
+        if not target_path and rel_path and os.path.exists(BUNDLED_VAULT_DIR):
             bundled_path = os.path.abspath(os.path.join(BUNDLED_VAULT_DIR, rel_path))
             if bundled_path.startswith(os.path.abspath(BUNDLED_VAULT_DIR)) and os.path.exists(bundled_path):
-                try:
-                    with open(bundled_path, "rb") as f:
-                        content = f.read()
-                    filename = os.path.basename(bundled_path)
-                except Exception as e:
-                    pass
+                target_path = bundled_path
+                filename = os.path.basename(bundled_path)
 
-        # 4. Stream content if found (supporting Range header for instant PDF paging)
-        if content:
-            total_size = len(content)
+        # 4. Stream target_path if found (supporting Range header with 64KB chunked buffer)
+        if target_path and os.path.exists(target_path):
+            total_size = os.path.getsize(target_path)
             lower_name = filename.lower()
             if lower_name.endswith(".jpg") or lower_name.endswith(".jpeg"):
                 mime_type = "image/jpeg"
@@ -911,13 +951,22 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                         self.send_header(k, v)
                     self.end_headers()
                     if self.command != "HEAD":
-                        try:
-                            self.wfile.write(content[start:end+1])
-                        except (BrokenPipeError, ConnectionResetError):
-                            pass
+                        with open(target_path, "rb") as f:
+                            f.seek(start)
+                            remaining = chunk_len
+                            while remaining > 0:
+                                to_read = min(65536, remaining)
+                                chunk = f.read(to_read)
+                                if not chunk:
+                                    break
+                                try:
+                                    self.wfile.write(chunk)
+                                except (BrokenPipeError, ConnectionResetError):
+                                    break
+                                remaining -= len(chunk)
                     return
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[!] Range stream error: {e}", file=sys.stderr)
 
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
@@ -928,13 +977,18 @@ class CampusIQRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header(k, v)
             self.end_headers()
             if self.command != "HEAD":
-                try:
-                    self.wfile.write(content)
-                except (BrokenPipeError, ConnectionResetError):
-                    pass
+                with open(target_path, "rb") as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk:
+                            break
+                        try:
+                            self.wfile.write(chunk)
+                        except (BrokenPipeError, ConnectionResetError):
+                            break
             return
 
-        # 4. Clean Not Found (NEVER fallback to sample_result.pdf)
+        # 5. Clean Not Found (NEVER fallback to sample_result.pdf)
         self._send_json({
             "status": "not_found",
             "error": f"The document '{filename}' is currently being synced. Please check back shortly."

@@ -36,8 +36,6 @@ class EdumarshalClient:
         self.username = username
         self.password = password
         self.ssl_ctx = ssl.create_default_context()
-        self.ssl_ctx.check_hostname = False
-        self.ssl_ctx.verify_mode = ssl.CERT_NONE
         self.base_url = EDUMARSHAL_BASE
 
         if self.username not in _SESSION_CACHE:

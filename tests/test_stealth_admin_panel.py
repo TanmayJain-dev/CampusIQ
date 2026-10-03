@@ -95,7 +95,7 @@ def main():
         assert status == 401, f"Expected 401 for wrong passcode, got {status}"
         print("  ✓ Incorrect passcode rejected with 401")
 
-        status, res = make_request("POST", "/api/admin/auth", body={"passcode": "mait@admin2026"})
+        status, res = make_request("POST", "/api/admin/auth", body={"passcode": server.ADMIN_SECRET_KEY})
         assert status == 200, f"Expected 200 for correct passcode, got {status}: {res}"
         assert res.get("status") == "success" and "token" in res, f"Expected token in response, got {res}"
         admin_token = res["token"]

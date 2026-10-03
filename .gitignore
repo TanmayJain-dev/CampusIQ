@@ -45,6 +45,7 @@ assets/vault/
 
 # Local databases and encryption keys
 data/.vault_key
+data/.admin_secret
 *.db
 *.db-wal
 *.db-shm
